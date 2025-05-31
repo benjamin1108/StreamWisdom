@@ -148,10 +148,8 @@ class StreamWisdom {
     hideInputCard() {
         const inputCard = document.getElementById('inputCard');
         if (inputCard) {
-            inputCard.classList.add('transition-all', 'duration-500', 'ease-out', 'opacity-0', 'scale-95');
-            setTimeout(() => {
-                inputCard.style.display = 'none';
-            }, 500);
+            // 立即隐藏输入框，不需要动画
+            inputCard.style.display = 'none';
         }
     }
 
@@ -487,8 +485,6 @@ class StreamWisdom {
         if (inputCard) {
             inputCard.style.display = 'block';
             inputCard.className = 'glass-card rounded-3xl p-8 sm:p-12 max-w-2xl w-full mx-4 relative';
-            // 移除隐藏时添加的样式
-            inputCard.classList.remove('transition-all', 'duration-500', 'ease-out', 'opacity-0', 'scale-95');
             // 添加进入动画
             inputCard.classList.add('scale-in');
         }
@@ -654,12 +650,28 @@ class StreamWisdom {
                     <button id="closeErrorBtn" aria-label="关闭错误提示" class="absolute top-4 right-5 text-slate-500 hover:text-slate-200 transition-colors duration-150">
                         <i class="fas fa-times text-2xl"></i>
                     </button>
-                    <div class="flex items-start">
+                    <div class="flex items-start mb-6">
                         <i class="fas fa-exclamation-triangle text-red-400 mr-4 text-3xl flex-shrink-0"></i>
                         <div>
                             <h3 class="text-white font-semibold text-xl mb-2">转化失败</h3>
                             <p class="text-slate-300 leading-relaxed">${message}</p>
                         </div>
+                    </div>
+                    
+                    <!-- CTA 按钮区域 -->
+                    <div class="flex flex-wrap gap-3 justify-center border-t border-slate-600 pt-6">
+                        <button id="retryBtn" class="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center gap-2">
+                            <i class="fas fa-redo"></i>
+                            重新转化
+                        </button>
+                        <button id="backHomeBtn" class="px-6 py-3 bg-slate-600 hover:bg-slate-500 text-white rounded-xl font-medium transition-all duration-200 flex items-center gap-2">
+                            <i class="fas fa-home"></i>
+                            返回首页
+                        </button>
+                        <button id="reportErrorBtn" class="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-medium transition-all duration-200 flex items-center gap-2">
+                            <i class="fas fa-bug"></i>
+                            反馈问题
+                        </button>
                     </div>
                 </div>
             </div>
@@ -667,10 +679,34 @@ class StreamWisdom {
         
         dynamicContainer.innerHTML = errorHtml;
 
+        // 绑定CTA按钮事件
         const closeErrorBtn = document.getElementById('closeErrorBtn');
+        const retryBtn = document.getElementById('retryBtn');
+        const backHomeBtn = document.getElementById('backHomeBtn');
+        const reportErrorBtn = document.getElementById('reportErrorBtn');
+
         if (closeErrorBtn) {
             closeErrorBtn.addEventListener('click', () => {
                 dynamicContainer.innerHTML = ''; // 清除错误
+            });
+        }
+
+        if (retryBtn) {
+            retryBtn.addEventListener('click', () => {
+                dynamicContainer.innerHTML = ''; // 清除错误
+                this.handleTransform(); // 重新执行转化
+            });
+        }
+
+        if (backHomeBtn) {
+            backHomeBtn.addEventListener('click', () => {
+                this.startNewTransform(); // 返回首页
+            });
+        }
+
+        if (reportErrorBtn) {
+            reportErrorBtn.addEventListener('click', () => {
+                this.reportError(message); // 反馈问题
             });
         }
         
@@ -737,6 +773,36 @@ class StreamWisdom {
         // 自动隐藏（错误消息显示更久）
         const autoHideDelay = type === 'error' ? 5000 : type === 'warning' ? 4000 : 3000;
         setTimeout(hideMessage, autoHideDelay);
+    }
+
+    reportError(errorMessage) {
+        // 创建错误报告邮件链接
+        const subject = encodeURIComponent('悟流转化错误反馈');
+        const body = encodeURIComponent(`
+错误信息：${errorMessage}
+URL：${this.currentUrl}
+时间：${new Date().toLocaleString('zh-CN')}
+浏览器：${navigator.userAgent}
+
+请描述您遇到的具体问题：
+
+
+        `);
+        
+        // 尝试使用不同的反馈方式
+        if (navigator.clipboard) {
+            // 复制错误信息到剪贴板
+            const errorReport = `错误信息：${errorMessage}\nURL：${this.currentUrl}\n时间：${new Date().toLocaleString('zh-CN')}`;
+            navigator.clipboard.writeText(errorReport).then(() => {
+                this.showTemporaryMessage('错误信息已复制到剪贴板，您可以发送给我们', 'info');
+            });
+        } else {
+            // 备用方案：显示错误信息
+            this.showTemporaryMessage('请将以下错误信息发送给我们：' + errorMessage, 'info');
+        }
+        
+        // 如果有GitHub仓库，可以打开Issues页面
+        // window.open(`https://github.com/username/StreamOfWisdom/issues/new?title=${subject}&body=${body}`, '_blank');
     }
 }
 
