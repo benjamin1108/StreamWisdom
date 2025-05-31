@@ -1,0 +1,31 @@
+{
+  "priority": [
+    "grok3-mini",
+    "groq-llama3", 
+    "qwen-turbo",
+    "openai-gpt4",
+    "qwen-max"
+  ],
+  "settings": {
+    "grok3-mini": {
+      "enabled": true,
+      "description": "xAI Grok 3 Mini - 快速响应，理解能力强"
+    },
+    "groq-llama3": {
+      "enabled": true,
+      "description": "Groq Llama3 - 推理速度快，免费额度高"
+    },
+    "qwen-turbo": {
+      "enabled": true,
+      "description": "通义千问Turbo - 中文理解优秀，成本较低"
+    },
+    "openai-gpt4": {
+      "enabled": true,
+      "description": "OpenAI GPT-4 - 性能稳定，质量保证"
+    },
+    "qwen-max": {
+      "enabled": false,
+      "description": "通义千问Max - 最强性能，成本较高"
+    }
+  }
+} 
