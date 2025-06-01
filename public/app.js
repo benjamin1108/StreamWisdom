@@ -45,17 +45,15 @@ class StreamWisdom {
 
     async handleTransform() {
         const urlInput = document.getElementById('urlInput');
-        const styleSelect = document.getElementById('styleSelect');
         const complexitySelect = document.getElementById('complexitySelect');
         const streamToggle = document.getElementById('streamToggle');
         
-        if (!urlInput || !styleSelect || !complexitySelect || !streamToggle) {
+        if (!urlInput || !complexitySelect || !streamToggle) {
             this.showError('页面组件加载不完整，请刷新页面重试');
             return;
         }
         
         const url = urlInput.value.trim();
-        const style = styleSelect.value;
         const complexity = complexitySelect.value;
         const useStream = streamToggle.checked;
 
@@ -78,13 +76,13 @@ class StreamWisdom {
 
         // 根据用户选择使用不同的方式
         if (useStream) {
-            this.handleStreamTransform(url, style, complexity);
+            this.handleStreamTransform(url, complexity);
         } else {
-            this.handleRegularTransform(url, style, complexity);
+            this.handleRegularTransform(url, complexity);
         }
     }
 
-    async handleRegularTransform(url, style, complexity) {
+    async handleRegularTransform(url, complexity) {
         this.showLoading();
 
         try {
@@ -95,7 +93,6 @@ class StreamWisdom {
                 },
                 body: JSON.stringify({
                     url: url,
-                    style: style,
                     complexity: complexity
                 })
             });
@@ -121,10 +118,10 @@ class StreamWisdom {
         }
     }
 
-    handleStreamTransform(url, style, complexity) {
+    handleStreamTransform(url, complexity) {
         this.showStreamLoading();
         
-        const eventSource = new EventSource(`/api/transform-stream?url=${encodeURIComponent(url)}&style=${style}&complexity=${complexity}`, {
+        const eventSource = new EventSource(`/api/transform-stream?url=${encodeURIComponent(url)}&complexity=${complexity}`, {
             headers: {
                 'Content-Type': 'application/json',
             }
@@ -138,7 +135,6 @@ class StreamWisdom {
             },
             body: JSON.stringify({
                 url: url,
-                style: style,
                 complexity: complexity
             })
         }).then(response => {
@@ -302,7 +298,7 @@ class StreamWisdom {
                     <!-- 工具栏 -->
                     <div class="toolbar bg-slate-800/50 px-6 py-4 border-b border-slate-700 flex items-center justify-between">
                         <div class="flex items-center gap-4">
-                            <button onclick="streamWisdom.startNewTransform()" class="toolbar-button px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:text-white transition-all">
+                            <button id="streamNewTransformBtn" class="toolbar-button px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:text-white transition-all">
                                 <i class="fas fa-arrow-left mr-2"></i>
                                 新转化
                             </button>
@@ -332,6 +328,12 @@ class StreamWisdom {
         `;
         
         dynamicContainer.innerHTML = resultHtml;
+        
+        // 绑定新转化按钮事件
+        const streamNewTransformBtn = document.getElementById('streamNewTransformBtn');
+        if (streamNewTransformBtn) {
+            streamNewTransformBtn.addEventListener('click', () => this.startNewTransform());
+        }
         
         // 添加打字机效果CSS
         const style = document.createElement('style');
@@ -1153,5 +1155,5 @@ URL：${this.currentUrl}
 
 // 初始化应用
 document.addEventListener('DOMContentLoaded', () => {
-    new StreamWisdom();
+    window.streamWisdom = new StreamWisdom();
 }); 

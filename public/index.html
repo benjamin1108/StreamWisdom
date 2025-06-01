@@ -540,24 +540,18 @@
                     </div>
 
                     <!-- Options Row -->
-                    <div class="options-row-wrapper grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-slate-300 text-sm font-medium mb-2">
-                                <i class="fas fa-palette mr-2 text-blue-400"></i>转化风格
-                            </label>
-                            <select id="styleSelect" class="w-full px-4 py-3 rounded-lg cyber-input text-white outline-none">
-                                <option value="narrative">叙事故事</option>
-                                <option value="technical">技术总结</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-slate-300 text-sm font-medium mb-2">
-                                <i class="fas fa-layer-group mr-2 text-blue-400"></i>复杂程度
+                    <div class="options-row-wrapper">
+                        <div class="max-w-sm mx-auto">
+                            <label class="block text-slate-300 text-sm font-medium mb-2 text-center">
+                                <i class="fas fa-layer-group mr-2 text-blue-400"></i>阅读难度
                             </label>
                             <select id="complexitySelect" class="w-full px-4 py-3 rounded-lg cyber-input text-white outline-none">
-                                <option value="beginner">初学者</option>
-                                <option value="intermediate">中级</option>
+                                <option value="beginner">通俗易懂</option>
+                                <option value="intermediate">有一定深度</option>
                             </select>
+                            <div class="text-center text-slate-400 text-xs mt-2">
+                                ✨ AI会自动分析内容并选择最佳转化风格
+                            </div>
                         </div>
                     </div>
 

@@ -378,29 +378,17 @@ async function transformContent(extractedData, style, complexity) {
     const { content, images, imageCount } = extractedData;
     const basePrompt = await loadPrompt();
     
-    // 根据风格和复杂程度调整提示词
-    let styleInstruction = '';
-    switch (style) {
-        case 'narrative':
-            styleInstruction = '请以叙事故事的方式转化内容，使用生动的比喻和场景描述。';
-            break;
-        case 'technical':
-            styleInstruction = '请以技术总结的方式转化内容，保持专业性的同时增强可读性。';
-            break;
-        default:
-            styleInstruction = '请以叙事故事的方式转化内容。';
-    }
-    
+    // 复杂程度说明（保留这个选项，因为确实影响读者理解层次）
     let complexityInstruction = '';
     switch (complexity) {
         case 'beginner':
-            complexityInstruction = '内容应适合初学者理解，使用简单易懂的语言。';
+            complexityInstruction = '内容应适合初学者理解，使用简单易懂的语言，多用基础概念解释。';
             break;
         case 'intermediate':
-            complexityInstruction = '内容应适合有一定基础的读者，可以包含一些专业术语。';
+            complexityInstruction = '内容应适合有一定基础的读者，可以包含一些专业术语，但要确保解释清楚。';
             break;
         default:
-            complexityInstruction = '内容应适合初学者理解。';
+            complexityInstruction = '内容应适合初学者理解，使用简单易懂的语言。';
     }
     
     // 构建图片信息
@@ -417,8 +405,8 @@ async function transformContent(extractedData, style, complexity) {
         });
         imageSection += '请在转化后的内容中：\n1. 对重要图片进行描述和总结\n2. 解释图片与文章内容的关系\n3. 如果图片有助于理解，请在适当位置提及\n4. 可以使用markdown的图片语法：![描述](链接)\n\n';
     }
-    
-    const finalPrompt = `${basePrompt}\n\n${styleInstruction}\n${complexityInstruction}${imageSection}\n\n请转化以下内容，确保输出完整、详细的内容（目标长度1000-2000字）：\n\n${content}`;
+
+    const finalPrompt = `${basePrompt}\n\n${complexityInstruction}${imageSection}\n\n请转化以下内容，确保输出完整、详细的内容（目标长度1000-2000字）：\n\n${content}`;
     
     // 服务端自动选择最佳模型
     const modelId = modelManager.selectBestModel();
@@ -427,13 +415,13 @@ async function transformContent(extractedData, style, complexity) {
     if (!modelManager.isValidModel(modelId)) {
         throw new Error(`不支持的模型: ${modelId}`);
     }
-    
+
     const apiKey = modelManager.getDefaultApiKey(modelId);
     
     if (!apiKey || apiKey === 'test_key') {
         throw new Error(`未配置${modelManager.getModelConfig(modelId).name}的API密钥`);
     }
-    
+
     console.log(`使用模型: ${modelManager.getModelConfig(modelId).name}`);
     
     try {
@@ -455,7 +443,7 @@ async function transformContent(extractedData, style, complexity) {
 // API路由
 app.post('/api/transform', async (req, res) => {
     try {
-        const { url, style = 'narrative', complexity = 'beginner' } = req.body;
+        const { url, complexity = 'beginner' } = req.body;
         
         if (!url) {
             return res.status(400).json({ error: '请提供URL地址' });
@@ -474,8 +462,8 @@ app.post('/api/transform', async (req, res) => {
         const extractedData = await extractUrlContent(url);
         console.log(`提取内容成功，长度: ${extractedData.content.length} 字符，图片: ${extractedData.imageCount} 张`);
         
-        // 转化内容（服务端自动选择模型）
-        const result = await transformContent(extractedData, style, complexity);
+        // 转化内容（AI自动选择风格，服务端自动选择模型）
+        const result = await transformContent(extractedData, null, complexity);
         console.log(`内容转化成功，转化后长度: ${result.length} 字符`);
         
         // 检查是否可能被截断
@@ -511,7 +499,7 @@ app.post('/api/transform', async (req, res) => {
 // 新的流式API端点
 app.post('/api/transform-stream', async (req, res) => {
     try {
-        const { url, style = 'narrative', complexity = 'beginner' } = req.body;
+        const { url, complexity = 'beginner' } = req.body;
         
         if (!url) {
             return res.status(400).json({ error: '请提供URL地址' });
@@ -567,7 +555,7 @@ app.post('/api/transform-stream', async (req, res) => {
             })}\n\n`);
             
             // 调用流式转化
-            const result = await transformContentStream(extractedData, style, complexity, (chunk) => {
+            const result = await transformContentStream(extractedData, null, complexity, (chunk) => {
                 // 实时推送AI生成的内容块
                 res.write(`data: ${JSON.stringify({ 
                     type: 'content_chunk', 
@@ -621,29 +609,17 @@ async function transformContentStream(extractedData, style, complexity, onChunk)
     const { content, images, imageCount } = extractedData;
     const basePrompt = await loadPrompt();
     
-    // 根据风格和复杂程度调整提示词（与原函数相同）
-    let styleInstruction = '';
-    switch (style) {
-        case 'narrative':
-            styleInstruction = '请以叙事故事的方式转化内容，使用生动的比喻和场景描述。';
-            break;
-        case 'technical':
-            styleInstruction = '请以技术总结的方式转化内容，保持专业性的同时增强可读性。';
-            break;
-        default:
-            styleInstruction = '请以叙事故事的方式转化内容。';
-    }
-    
+    // 复杂程度说明（保留这个选项，因为确实影响读者理解层次）
     let complexityInstruction = '';
     switch (complexity) {
         case 'beginner':
-            complexityInstruction = '内容应适合初学者理解，使用简单易懂的语言。';
+            complexityInstruction = '内容应适合初学者理解，使用简单易懂的语言，多用基础概念解释。';
             break;
         case 'intermediate':
-            complexityInstruction = '内容应适合有一定基础的读者，可以包含一些专业术语。';
+            complexityInstruction = '内容应适合有一定基础的读者，可以包含一些专业术语，但要确保解释清楚。';
             break;
         default:
-            complexityInstruction = '内容应适合初学者理解。';
+            complexityInstruction = '内容应适合初学者理解，使用简单易懂的语言。';
     }
     
     // 构建图片信息
@@ -661,7 +637,7 @@ async function transformContentStream(extractedData, style, complexity, onChunk)
         imageSection += '请在转化后的内容中：\n1. 对重要图片进行描述和总结\n2. 解释图片与文章内容的关系\n3. 如果图片有助于理解，请在适当位置提及\n4. 可以使用markdown的图片语法：![描述](链接)\n\n';
     }
     
-    const finalPrompt = `${basePrompt}\n\n${styleInstruction}\n${complexityInstruction}${imageSection}\n\n请转化以下内容，确保输出完整、详细的内容（目标长度1000-2000字）：\n\n${content}`;
+    const finalPrompt = `${basePrompt}\n\n${complexityInstruction}${imageSection}\n\n请转化以下内容，确保输出完整、详细的内容（目标长度1000-2000字）：\n\n${content}`;
     
     // 服务端自动选择最佳模型
     const modelId = modelManager.selectBestModel();
@@ -670,13 +646,13 @@ async function transformContentStream(extractedData, style, complexity, onChunk)
     if (!modelManager.isValidModel(modelId)) {
         throw new Error(`不支持的模型: ${modelId}`);
     }
-    
+
     const apiKey = modelManager.getDefaultApiKey(modelId);
     
     if (!apiKey || apiKey === 'test_key') {
         throw new Error(`未配置${modelManager.getModelConfig(modelId).name}的API密钥`);
     }
-    
+
     console.log(`使用模型进行流式转化: ${modelManager.getModelConfig(modelId).name}`);
     
     try {
