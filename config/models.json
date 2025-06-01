@@ -1,7 +1,8 @@
 {
+  "selectedModel": "qwen-max",
   "priority": [
     "grok3-mini",
-    "groq-llama3", 
+    "groq-llama3",
     "qwen-turbo",
     "openai-gpt4",
     "qwen-max"
@@ -24,8 +25,20 @@
       "description": "OpenAI GPT-4 - 性能稳定，质量保证"
     },
     "qwen-max": {
-      "enabled": false,
+      "enabled": true,
       "description": "通义千问Max - 最强性能，成本较高"
     }
+  },
+  "_comments": {
+    "selectedModel": "主动选择的模型ID，如果设置了此字段且该模型有有效的API密钥，将优先使用此模型",
+    "priority": "模型优先级列表，当selectedModel不可用时，按此顺序选择备用模型",
+    "usage": "要切换模型，只需修改selectedModel字段的值为任一可用的模型ID",
+    "available_models": [
+      "grok3-mini",
+      "groq-llama3",
+      "qwen-turbo",
+      "openai-gpt4",
+      "qwen-max"
+    ]
   }
-} 
+}

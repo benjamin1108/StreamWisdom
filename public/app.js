@@ -2,6 +2,8 @@ class StreamWisdom {
     constructor() {
         this.isTransformed = false;
         this.currentUrl = '';
+        this.streamResultInitialized = false;
+        this.streamContent = '';
         this.init();
     }
 
@@ -45,8 +47,9 @@ class StreamWisdom {
         const urlInput = document.getElementById('urlInput');
         const styleSelect = document.getElementById('styleSelect');
         const complexitySelect = document.getElementById('complexitySelect');
+        const streamToggle = document.getElementById('streamToggle');
         
-        if (!urlInput || !styleSelect || !complexitySelect) {
+        if (!urlInput || !styleSelect || !complexitySelect || !streamToggle) {
             this.showError('页面组件加载不完整，请刷新页面重试');
             return;
         }
@@ -54,6 +57,7 @@ class StreamWisdom {
         const url = urlInput.value.trim();
         const style = styleSelect.value;
         const complexity = complexitySelect.value;
+        const useStream = streamToggle.checked;
 
         if (!url) {
             this.showError('请输入有效的URL地址');
@@ -71,6 +75,16 @@ class StreamWisdom {
 
         this.transformToCompactLayout();
         this.hideInputCard();
+
+        // 根据用户选择使用不同的方式
+        if (useStream) {
+            this.handleStreamTransform(url, style, complexity);
+        } else {
+            this.handleRegularTransform(url, style, complexity);
+        }
+    }
+
+    async handleRegularTransform(url, style, complexity) {
         this.showLoading();
 
         try {
@@ -80,7 +94,7 @@ class StreamWisdom {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    url: this.currentUrl,
+                    url: url,
                     style: style,
                     complexity: complexity
                 })
@@ -105,6 +119,337 @@ class StreamWisdom {
             this.hideLoading();
             this.showError('网络错误，请检查连接后重试');
         }
+    }
+
+    handleStreamTransform(url, style, complexity) {
+        this.showStreamLoading();
+        
+        const eventSource = new EventSource(`/api/transform-stream?url=${encodeURIComponent(url)}&style=${style}&complexity=${complexity}`, {
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        // 发送POST请求数据
+        fetch('/api/transform-stream', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                url: url,
+                style: style,
+                complexity: complexity
+            })
+        }).then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            // 读取流式响应
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            
+            const readStream = () => {
+                reader.read().then(({ done, value }) => {
+                    if (done) {
+                        console.log('流式响应完成');
+                        return;
+                    }
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // 保留最后一个可能不完整的行
+                    
+                    for (const line of lines) {
+                        if (line.trim() === '') continue;
+                        
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6).trim();
+                            
+                            if (data === '[DONE]') {
+                                this.completeStreamTransform();
+                                return;
+                            }
+                            
+                            try {
+                                const parsed = JSON.parse(data);
+                                this.handleStreamMessage(parsed);
+                            } catch (error) {
+                                console.error('解析流式数据失败:', error, data);
+                            }
+                        }
+                    }
+                    
+                    readStream(); // 继续读取
+                }).catch(error => {
+                    console.error('流式读取错误:', error);
+                    this.handleStreamError('网络错误，请检查连接后重试');
+                });
+            };
+            
+            readStream();
+        }).catch(error => {
+            console.error('Stream transform error:', error);
+            this.handleStreamError('网络错误，请检查连接后重试');
+        });
+    }
+
+    showStreamLoading() {
+        const loadingContainer = document.getElementById('loadingContainer');
+        
+        if (loadingContainer) {
+            const loadingHtml = `
+                <div class="loading-container">
+                    <div class="loading-circle"></div>
+                    <div class="loading-pulse">
+                        <div class="loading-dot"></div>
+                        <div class="loading-dot"></div>
+                        <div class="loading-dot"></div>
+                    </div>
+                    <h3 class="text-2xl font-semibold text-white mb-4 fade-in">🌊 流式转化中</h3>
+                    <div class="text-center">
+                        <p id="streamLoadingMessage" class="text-slate-300 text-lg mb-4">初始化中...</p>
+                        <div class="stream-progress-container">
+                            <div class="w-full bg-slate-700 rounded-full h-2 mx-auto mb-4">
+                                <div id="streamProgressBar" class="bg-gradient-to-r from-blue-400 to-purple-500 h-2 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-slate-400 text-sm">
+                            <i class="fas fa-stream text-blue-400 mr-2"></i>
+                            实时内容生成中，请稍候...
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            loadingContainer.querySelector('.glass-card').innerHTML = loadingHtml;
+            loadingContainer.classList.remove('hidden');
+            loadingContainer.classList.add('fade-in');
+        }
+    }
+
+    handleStreamMessage(message) {
+        const streamMessage = document.getElementById('streamLoadingMessage');
+        const progressBar = document.getElementById('streamProgressBar');
+        
+        console.log('收到流式消息:', message);
+        
+        switch (message.type) {
+            case 'init':
+                if (streamMessage) streamMessage.textContent = message.message;
+                if (progressBar) progressBar.style.width = '5%';
+                break;
+                
+            case 'progress':
+                if (streamMessage) streamMessage.textContent = message.message;
+                
+                let progress = 0;
+                switch (message.stage) {
+                    case 'extracting': progress = 15; break;
+                    case 'extracted': progress = 30; break;
+                    case 'transforming': progress = 40; break;
+                    case 'model_selected': progress = 45; break;
+                }
+                
+                if (progressBar) progressBar.style.width = `${progress}%`;
+                
+                // 如果是model_selected，更新模型信息
+                if (message.stage === 'model_selected' && message.data?.model) {
+                    this.updateModelStatus(message.data.model);
+                }
+                break;
+                
+            case 'content_chunk':
+                // 首次收到内容时，切换到结果页面
+                if (!this.streamResultInitialized) {
+                    this.initStreamResultWindow(message);
+                }
+                
+                // 追加内容到结果页面
+                this.appendStreamContent(message.chunk);
+                
+                if (progressBar) {
+                    const currentWidth = parseInt(progressBar.style.width) || 45;
+                    const newWidth = Math.min(currentWidth + 1, 90);
+                    progressBar.style.width = `${newWidth}%`;
+                }
+                break;
+                
+            case 'complete':
+                this.completeStreamTransform(message.data);
+                break;
+                
+            case 'error':
+                this.handleStreamError(message.error);
+                break;
+        }
+    }
+
+    initStreamResultWindow(firstMessage) {
+        this.hideLoading();
+        this.streamResultInitialized = true;
+        this.streamContent = '';
+        
+        // 创建流式结果窗口
+        const dynamicContainer = document.getElementById('dynamicContainer');
+        if (!dynamicContainer) return;
+        
+        const resultHtml = `
+            <div class="container mx-auto px-4 py-8 max-w-6xl">
+                <div class="result-card rounded-3xl overflow-hidden float-up">
+                    <!-- 工具栏 -->
+                    <div class="toolbar bg-slate-800/50 px-6 py-4 border-b border-slate-700 flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <button onclick="streamWisdom.startNewTransform()" class="toolbar-button px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:text-white transition-all">
+                                <i class="fas fa-arrow-left mr-2"></i>
+                                新转化
+                            </button>
+                            <div class="text-slate-400 text-sm">
+                                <i class="fas fa-stream text-blue-400 mr-2"></i>
+                                流式生成中...
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div id="streamStats" class="stats-badge px-3 py-1 rounded-full text-sm">
+                                生成中...
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 内容区域 -->
+                    <div class="content-area">
+                        <div id="streamResultContent" class="markdown-content">
+                            <div class="typing-indicator">
+                                <div class="typing-text markdown-content"></div>
+                                <span class="typing-cursor">|</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        dynamicContainer.innerHTML = resultHtml;
+        
+        // 添加打字机效果CSS
+        const style = document.createElement('style');
+        style.textContent = `
+            .typing-cursor {
+                animation: blink 1s infinite;
+                color: var(--accent-color);
+                font-weight: bold;
+                font-size: 1.2em;
+                margin-left: 2px;
+            }
+            
+            @keyframes blink {
+                0%, 50% { opacity: 1; }
+                51%, 100% { opacity: 0; }
+            }
+            
+            .typing-text {
+                font-family: var(--font-serif);
+                line-height: 1.8;
+                color: var(--text-light);
+                min-height: 1.5em;
+            }
+            
+            .typing-indicator {
+                display: flex;
+                align-items: flex-start;
+            }
+            
+            .typing-indicator .typing-text {
+                flex: 1;
+                margin-right: 4px;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    appendStreamContent(chunk) {
+        const typingText = document.querySelector('.typing-text');
+        const typingCursor = document.querySelector('.typing-cursor');
+        
+        if (typingText) {
+            this.streamContent += chunk;
+            
+            // 实时渲染markdown格式
+            const renderedContent = this.renderMarkdown(this.streamContent);
+            typingText.innerHTML = renderedContent;
+            
+            // 重新应用图片样式（如果有图片的话）
+            this.styleMarkdownImages();
+            
+            // 确保光标可见
+            if (typingCursor) {
+                typingCursor.style.display = 'inline';
+            }
+            
+            // 滚动到页面底部，而不是元素本身
+            window.scrollTo({
+                top: document.body.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+    }
+
+    completeStreamTransform(data) {
+        const progressBar = document.getElementById('streamProgressBar');
+        if (progressBar) {
+            progressBar.style.width = '100%';
+        }
+        
+        // 隐藏加载界面
+        this.hideLoading();
+        
+        if (data) {
+            // 移除打字机效果，显示最终结果
+            const resultContent = document.getElementById('streamResultContent');
+            if (resultContent) {
+                // 使用最终的完整内容，确保格式正确
+                const finalContent = this.renderMarkdown(data.result);
+                resultContent.innerHTML = finalContent;
+                this.styleMarkdownImages();
+            }
+            
+            // 更新工具栏状态
+            const toolbar = document.querySelector('.toolbar .text-slate-400');
+            if (toolbar) {
+                toolbar.innerHTML = `
+                    <i class="fas fa-check-circle text-green-400 mr-2"></i>
+                    流式生成完成
+                `;
+            }
+            
+            // 更新统计信息
+            const streamStats = document.getElementById('streamStats');
+            if (streamStats) {
+                streamStats.innerHTML = this.getStatsText(data.model, data.imageCount, data.transformedLength);
+            }
+            
+            // 绑定结果页面事件
+            this.bindResultEvents();
+            this.initBackToTop();
+            
+            console.log(`流式转化完成 - 原文: ${data.originalLength} 字符, 转化后: ${data.transformedLength} 字符`);
+            if (data.imageCount > 0) {
+                console.log(`文章包含 ${data.imageCount} 张图片，已处理图片信息`);
+            }
+        }
+        
+        this.streamResultInitialized = false;
+        this.streamContent = '';
+    }
+
+    handleStreamError(error) {
+        console.error('Stream error:', error);
+        this.hideLoading();
+        this.showError(error || '流式转化失败，请稍后重试');
+        this.streamResultInitialized = false;
+        this.streamContent = '';
     }
 
     isValidUrl(string) {

@@ -459,6 +459,44 @@
         }
 
         /* 清理：不再需要紧凑布局的复杂样式 */
+
+        /* 切换开关样式 */
+        .toggle-switch {
+            user-select: none;
+        }
+
+        .toggle-bg {
+            transition: background-color 0.2s ease;
+        }
+
+        .toggle-dot {
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+
+        /* 未选中状态 */
+        #streamToggle:not(:checked) + .toggle-switch .toggle-bg {
+            background-color: rgb(71, 85, 105);
+        }
+
+        #streamToggle:not(:checked) + .toggle-switch .toggle-dot {
+            transform: translateX(0.125rem);
+            background-color: rgb(203, 213, 225);
+        }
+
+        /* 选中状态 */
+        #streamToggle:checked + .toggle-switch .toggle-bg {
+            background-color: rgb(59, 130, 246);
+        }
+
+        #streamToggle:checked + .toggle-switch .toggle-dot {
+            transform: translateX(1.5rem);
+            background-color: white;
+        }
+
+        /* Hover效果 */
+        .stream-option-wrapper label:hover .toggle-bg {
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+        }
     </style>
 </head>
 <body class="min-h-screen">
@@ -521,6 +559,24 @@
                                 <option value="intermediate">中级</option>
                             </select>
                         </div>
+                    </div>
+
+                    <!-- Stream Output Option -->
+                    <div class="stream-option-wrapper">
+                        <label class="flex items-center justify-center gap-3 p-4 rounded-lg border border-slate-600 bg-slate-800/30 hover:bg-slate-700/30 cursor-pointer transition-all duration-200 hover:border-blue-400/50">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-stream text-blue-400"></i>
+                                <span class="text-slate-300 font-medium">流式输出</span>
+                            </div>
+                            <input type="checkbox" id="streamToggle" class="sr-only" checked>
+                            <div class="toggle-switch relative">
+                                <div class="toggle-bg w-12 h-6 bg-slate-600 rounded-full shadow-inner transition-all duration-200"></div>
+                                <div class="toggle-dot absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transform transition-all duration-200 translate-x-6 bg-blue-400"></div>
+                            </div>
+                            <div class="text-slate-400 text-sm">
+                                实时查看AI生成过程
+                            </div>
+                        </label>
                     </div>
 
                     <!-- Transform Button -->

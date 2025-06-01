@@ -508,6 +508,392 @@ app.post('/api/transform', async (req, res) => {
     }
 });
 
+// 新的流式API端点
+app.post('/api/transform-stream', async (req, res) => {
+    try {
+        const { url, style = 'narrative', complexity = 'beginner' } = req.body;
+        
+        if (!url) {
+            return res.status(400).json({ error: '请提供URL地址' });
+        }
+        
+        // 验证URL格式
+        try {
+            new URL(url);
+        } catch {
+            return res.status(400).json({ error: '无效的URL格式' });
+        }
+        
+        // 设置SSE响应头
+        res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Cache-Control'
+        });
+        
+        // 发送初始化信息
+        res.write(`data: ${JSON.stringify({ type: 'init', message: '开始处理请求...' })}\n\n`);
+        
+        console.log(`开始流式处理URL: ${url}`);
+        
+        try {
+            // 第一步：提取内容
+            res.write(`data: ${JSON.stringify({ type: 'progress', stage: 'extracting', message: '正在提取网页内容...' })}\n\n`);
+            
+            const extractedData = await extractUrlContent(url);
+            console.log(`提取内容成功，长度: ${extractedData.content.length} 字符，图片: ${extractedData.imageCount} 张`);
+            
+            res.write(`data: ${JSON.stringify({ 
+                type: 'progress', 
+                stage: 'extracted', 
+                message: `内容提取完成，共 ${extractedData.content.length} 字符，${extractedData.imageCount} 张图片`,
+                data: {
+                    originalLength: extractedData.content.length,
+                    imageCount: extractedData.imageCount
+                }
+            })}\n\n`);
+            
+            // 第二步：AI转化 - 使用流式输出
+            res.write(`data: ${JSON.stringify({ type: 'progress', stage: 'transforming', message: '正在进行AI智能转化...' })}\n\n`);
+            
+            const usedModel = modelManager.selectBestModel();
+            res.write(`data: ${JSON.stringify({ 
+                type: 'progress', 
+                stage: 'model_selected', 
+                message: `使用 ${modelManager.getModelConfig(usedModel).name} 进行转化`,
+                data: { model: usedModel }
+            })}\n\n`);
+            
+            // 调用流式转化
+            const result = await transformContentStream(extractedData, style, complexity, (chunk) => {
+                // 实时推送AI生成的内容块
+                res.write(`data: ${JSON.stringify({ 
+                    type: 'content_chunk', 
+                    chunk: chunk,
+                    message: '正在生成内容...'
+                })}\n\n`);
+            });
+            
+            console.log(`流式内容转化成功，转化后长度: ${result.length} 字符`);
+            
+            // 发送完成信息
+            res.write(`data: ${JSON.stringify({ 
+                type: 'complete', 
+                message: '转化完成！',
+                data: {
+                    result: result,
+                    originalLength: extractedData.content.length,
+                    transformedLength: result.length,
+                    imageCount: extractedData.imageCount,
+                    images: extractedData.images.map(img => ({
+                        alt: img.alt,
+                        title: img.title,
+                        caption: img.caption
+                    })),
+                    model: usedModel
+                }
+            })}\n\n`);
+            
+            res.write(`data: [DONE]\n\n`);
+            res.end();
+            
+        } catch (error) {
+            console.error('流式转化处理错误:', error);
+            res.write(`data: ${JSON.stringify({ 
+                type: 'error', 
+                error: error.message || '处理请求时发生错误' 
+            })}\n\n`);
+            res.end();
+        }
+        
+    } catch (error) {
+        console.error('流式API初始化错误:', error);
+        res.status(500).json({ 
+            error: error.message || '处理请求时发生错误'
+        });
+    }
+});
+
+// 流式内容转化函数
+async function transformContentStream(extractedData, style, complexity, onChunk) {
+    const { content, images, imageCount } = extractedData;
+    const basePrompt = await loadPrompt();
+    
+    // 根据风格和复杂程度调整提示词（与原函数相同）
+    let styleInstruction = '';
+    switch (style) {
+        case 'narrative':
+            styleInstruction = '请以叙事故事的方式转化内容，使用生动的比喻和场景描述。';
+            break;
+        case 'technical':
+            styleInstruction = '请以技术总结的方式转化内容，保持专业性的同时增强可读性。';
+            break;
+        default:
+            styleInstruction = '请以叙事故事的方式转化内容。';
+    }
+    
+    let complexityInstruction = '';
+    switch (complexity) {
+        case 'beginner':
+            complexityInstruction = '内容应适合初学者理解，使用简单易懂的语言。';
+            break;
+        case 'intermediate':
+            complexityInstruction = '内容应适合有一定基础的读者，可以包含一些专业术语。';
+            break;
+        default:
+            complexityInstruction = '内容应适合初学者理解。';
+    }
+    
+    // 构建图片信息
+    let imageSection = '';
+    if (images && images.length > 0) {
+        imageSection = `\n\n= 文章中的图片信息 =\n本文包含 ${imageCount} 张图片，以下是图片的相关信息：\n\n`;
+        images.forEach((img, index) => {
+            imageSection += `图片 ${index + 1}:\n`;
+            if (img.alt) imageSection += `- 描述：${img.alt}\n`;
+            if (img.title) imageSection += `- 标题：${img.title}\n`;
+            if (img.caption) imageSection += `- 说明：${img.caption}\n`;
+            if (img.context) imageSection += `- 上下文：${img.context}\n`;
+            imageSection += `- 链接：${img.src}\n\n`;
+        });
+        imageSection += '请在转化后的内容中：\n1. 对重要图片进行描述和总结\n2. 解释图片与文章内容的关系\n3. 如果图片有助于理解，请在适当位置提及\n4. 可以使用markdown的图片语法：![描述](链接)\n\n';
+    }
+    
+    const finalPrompt = `${basePrompt}\n\n${styleInstruction}\n${complexityInstruction}${imageSection}\n\n请转化以下内容，确保输出完整、详细的内容（目标长度1000-2000字）：\n\n${content}`;
+    
+    // 服务端自动选择最佳模型
+    const modelId = modelManager.selectBestModel();
+    
+    // 验证模型是否支持
+    if (!modelManager.isValidModel(modelId)) {
+        throw new Error(`不支持的模型: ${modelId}`);
+    }
+    
+    const apiKey = modelManager.getDefaultApiKey(modelId);
+    
+    if (!apiKey || apiKey === 'test_key') {
+        throw new Error(`未配置${modelManager.getModelConfig(modelId).name}的API密钥`);
+    }
+    
+    console.log(`使用模型进行流式转化: ${modelManager.getModelConfig(modelId).name}`);
+    
+    try {
+        const messages = [
+            {
+                role: 'user',
+                content: finalPrompt
+            }
+        ];
+        
+        // 使用流式调用，并在回调中推送内容块
+        return await callModelWithStreamCallback(modelManager, modelId, messages, apiKey, onChunk);
+        
+    } catch (error) {
+        console.error('AI模型流式调用失败:', error.message);
+        throw error;
+    }
+}
+
+// 带回调的流式模型调用
+async function callModelWithStreamCallback(modelManager, modelId, messages, apiKey, onChunk) {
+    const config = modelManager.getModelConfig(modelId);
+    
+    if (!apiKey) {
+        throw new Error(`${config.name} 需要API密钥`);
+    }
+
+    const params = {
+        model: config.model,
+        maxTokens: config.maxTokens,
+        temperature: config.temperature
+    };
+
+    console.log(`\n🌊 开始流式调用 ${config.name} API (带前端回调)`);
+
+    const startTime = Date.now();
+
+    try {
+        let requestData;
+        
+        // 如果有自定义请求格式器，使用它
+        if (config.formatRequest) {
+            requestData = config.formatRequest(messages, params);
+        } else {
+            // 使用标准OpenAI格式
+            requestData = {
+                model: params.model,
+                messages: messages,
+                max_tokens: params.maxTokens,
+                temperature: params.temperature
+            };
+        }
+
+        // 添加流式参数
+        if (config.formatRequest) {
+            // 对于自定义格式（如qwen），添加stream参数
+            requestData.parameters = {
+                ...requestData.parameters,
+                stream: true
+            };
+        } else {
+            // 对于标准格式，添加stream参数
+            requestData.stream = true;
+        }
+        
+        return new Promise((resolve, reject) => {
+            const https = require('https');
+            const url = require('url');
+            
+            const parsedUrl = url.parse(config.apiUrl);
+            const postData = JSON.stringify(requestData);
+            
+            const options = {
+                hostname: parsedUrl.hostname,
+                port: parsedUrl.port || 443,
+                path: parsedUrl.path,
+                method: 'POST',
+                headers: {
+                    ...config.headers(apiKey),
+                    'Content-Length': Buffer.byteLength(postData),
+                    'Accept': 'text/event-stream',
+                    'Cache-Control': 'no-cache'
+                },
+                timeout: config.timeout
+            };
+
+            const req = https.request(options, (res) => {
+                console.log(`\n📊 流式响应状态码: ${res.statusCode} ${res.statusMessage}`);
+                
+                if (res.statusCode !== 200) {
+                    let errorData = '';
+                    res.on('data', chunk => errorData += chunk);
+                    res.on('end', () => {
+                        console.error(`📥 错误响应: ${errorData}`);
+                        reject(new Error(`HTTP ${res.statusCode}: ${errorData}`));
+                    });
+                    return;
+                }
+
+                let fullResponse = '';
+                let buffer = '';
+                
+                console.log(`\n🌊 开始接收流式数据 (前端回调模式):`);
+
+                res.on('data', (chunk) => {
+                    const chunkStr = chunk.toString();
+                    
+                    buffer += chunkStr;
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // 保留最后一个可能不完整的行
+
+                    for (const line of lines) {
+                        if (line.trim() === '') continue;
+                        
+                        // 通义千问的特殊SSE格式处理
+                        if (line.startsWith('data:')) {
+                            const data = line.slice(5).trim();
+                            
+                            if (data === '[DONE]') {
+                                const endTime = Date.now();
+                                const duration = endTime - startTime;
+                                console.log(`\n\n✅ 流式响应完成! 耗时: ${duration}ms`);
+                                console.log(`✨ 完整响应长度: ${fullResponse.length} 字符`);
+                                resolve(fullResponse);
+                                return;
+                            }
+                            
+                            try {
+                                const parsed = JSON.parse(data);
+                                
+                                // 处理通义千问的响应格式
+                                if (parsed.output && parsed.output.text !== undefined) {
+                                    const newText = parsed.output.text;
+                                    
+                                    // 检查是否结束
+                                    if (parsed.output.finish_reason === 'stop') {
+                                        const endTime = Date.now();
+                                        const duration = endTime - startTime;
+                                        console.log(`\n\n✅ 流式响应完成! 耗时: ${duration}ms`);
+                                        console.log(`✨ 完整响应长度: ${fullResponse.length} 字符`);
+                                        resolve(fullResponse);
+                                        return;
+                                    }
+                                    
+                                    // 推送新增内容到前端
+                                    if (newText && newText.length > 0) {
+                                        onChunk(newText); // 调用回调函数推送到前端
+                                        fullResponse += newText;
+                                    }
+                                }
+                                // 处理其他格式的流式响应 (OpenAI格式)
+                                else if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
+                                    const newPart = parsed.choices[0].delta.content;
+                                    onChunk(newPart); // 调用回调函数推送到前端
+                                    fullResponse += newPart;
+                                }
+                            } catch (parseError) {
+                                console.error(`\n⚠️  解析流式数据失败: ${data.substring(0, 100)}, 错误: ${parseError.message}`);
+                            }
+                        }
+                    }
+                });
+
+                res.on('end', () => {
+                    if (fullResponse) {
+                        const endTime = Date.now();
+                        const duration = endTime - startTime;
+                        console.log(`\n\n✅ 流式响应完成! 耗时: ${duration}ms`);
+                        console.log(`✨ 完整响应长度: ${fullResponse.length} 字符`);
+                        resolve(fullResponse);
+                    } else {
+                        reject(new Error('流式响应未收到有效数据'));
+                    }
+                });
+
+                res.on('error', (error) => {
+                    console.error(`\n❌ 流式响应错误: ${error.message}`);
+                    reject(error);
+                });
+            });
+
+            req.on('error', (error) => {
+                console.error(`\n❌ 请求错误: ${error.message}`);
+                reject(error);
+            });
+
+            req.on('timeout', () => {
+                req.destroy();
+                reject(new Error(`请求超时 (${config.timeout}ms)`));
+            });
+
+            req.write(postData);
+            req.end();
+        });
+        
+    } catch (error) {
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+        
+        console.error(`\n❌ ${config.name} 流式API调用失败! 耗时: ${duration}ms`);
+        console.error(`🔍 错误类型: ${error.name || 'Unknown'}`);
+        console.error(`💬 错误消息: ${error.message}`);
+        
+        if (error.response?.status === 401) {
+            throw new Error(`${config.name} API密钥无效`);
+        } else if (error.response?.status === 429) {
+            throw new Error(`${config.name} API调用频率限制，请稍后重试`);
+        } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+            throw new Error(`无法连接到${config.name}服务`);
+        } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+            throw new Error(`${config.name} 请求超时 (${config.timeout}ms)，请检查网络连接或稍后重试`);
+        } else {
+            throw new Error(`${config.name} 服务暂时不可用: ${error.message}`);
+        }
+    }
+}
+
 // 健康检查
 app.get('/api/health', (req, res) => {
     res.json({ 
@@ -515,6 +901,38 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
         cacheSize: urlCache.size
     });
+});
+
+// 获取模型配置信息
+app.get('/api/models', (req, res) => {
+    try {
+        const availableModels = modelManager.getAvailableModels();
+        const selectedModel = modelManager.loadSelectedModel();
+        const modelPriority = modelManager.loadModelPriority();
+        const currentModel = modelManager.selectBestModel();
+        
+        // 检查各模型的API密钥状态
+        const modelStatus = availableModels.map(model => {
+            const apiKey = modelManager.getDefaultApiKey(model.id);
+            const hasValidKey = apiKey && apiKey !== 'test_key';
+            return {
+                ...model,
+                hasValidKey,
+                isSelected: model.id === selectedModel,
+                isCurrent: model.id === currentModel
+            };
+        });
+
+        res.json({
+            selectedModel,
+            currentModel,
+            priority: modelPriority,
+            models: modelStatus
+        });
+    } catch (error) {
+        console.error('获取模型配置失败:', error);
+        res.status(500).json({ error: '获取模型配置失败' });
+    }
 });
 
 // 根路径重定向到主页
