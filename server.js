@@ -5,14 +5,16 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs').promises;
 const ModelManager = require('./lib/modelManager');
+const PDFExtractor = require('./lib/pdfExtractor');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 const HOST = '0.0.0.0';
 
-// 初始化模型管理器
+// 初始化模型管理器和PDF提取器
 const modelManager = new ModelManager();
+const pdfExtractor = new PDFExtractor();
 
 // 中间件
 app.use(cors());
@@ -49,6 +51,28 @@ async function extractUrlContent(url) {
             };
         }
         return cachedData;
+    }
+
+    // 检查是否是PDF，如果是则使用PDF提取器
+    try {
+        // 优化学术PDF URL
+        const optimizedUrl = pdfExtractor.optimizeAcademicPdfUrl(url);
+        
+        if (pdfExtractor.isPdfUrl(optimizedUrl) || pdfExtractor.isPdfUrl(url)) {
+            console.log('🔍 检测到PDF文件，使用专门的PDF提取器');
+            const pdfData = await pdfExtractor.extractPdfFromUrl(optimizedUrl);
+            
+            // 缓存PDF内容
+            urlCache.set(url, pdfData);
+            setTimeout(() => {
+                urlCache.delete(url);
+            }, 24 * 60 * 60 * 1000);
+            
+            return pdfData;
+        }
+    } catch (pdfError) {
+        console.log('PDF提取失败，尝试常规HTML提取:', pdfError.message);
+        // 如果PDF提取失败，继续尝试HTML提取
     }
 
     // 带重试的HTTP请求函数

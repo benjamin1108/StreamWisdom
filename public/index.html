@@ -497,9 +497,237 @@
         .stream-option-wrapper label:hover .toggle-bg {
             box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
         }
+
+        /* 阅读辅助功能样式 */
+        .reading-assistant {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .reading-controls {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 280px;
+        }
+
+        .reading-control-btn {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: var(--accent-color);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .reading-control-btn:hover {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: var(--accent-color);
+        }
+
+        .reading-control-btn.active {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .speed-slider {
+            width: 80px;
+            height: 4px;
+            background: rgba(59, 130, 246, 0.3);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .speed-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .speed-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+        }
+
+        /* 阅读高亮样式 */
+        .reading-highlight {
+            background: linear-gradient(120deg, rgba(59, 130, 246, 0.25) 0%, rgba(147, 197, 253, 0.15) 100%) !important;
+            border-radius: 4px;
+            padding: 2px 4px;
+            margin: 0 1px;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .reading-highlight::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            border-radius: 4px;
+            animation: shimmer 1.5s ease-in-out;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* 阅读焦点指示器 */
+        .reading-focus-indicator {
+            position: fixed;
+            left: 10px;
+            width: 4px;
+            height: 60px;
+            background: linear-gradient(180deg, var(--accent-color), rgba(59, 130, 246, 0.5));
+            border-radius: 2px;
+            z-index: 999;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+        }
+
+        /* 阅读状态提示 */
+        .reading-status {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 12px 20px;
+            color: var(--text-light);
+            font-size: 14px;
+            z-index: 999;
+            display: none;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 阅读辅助功能开关 */
+        .reading-toggle {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 1001;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 50px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--text-light);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        .reading-toggle:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: var(--accent-color);
+        }
+
+        .reading-toggle.active {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .reading-assistant {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+            }
+            
+            .reading-controls {
+                flex-wrap: wrap;
+                min-width: auto;
+                gap: 8px;
+                padding: 12px;
+            }
+            
+            .reading-toggle {
+                top: 60px;
+                right: 10px;
+                padding: 10px 12px;
+                font-size: 14px;
+            }
+            
+            .speed-control {
+                flex: 1;
+                min-width: 120px;
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen">
+    <!-- 阅读辅助功能 -->
+    <div class="reading-toggle" id="readingToggle" title="开启阅读辅助 (支持阅读困难症)">
+        <i class="fas fa-eye"></i>
+        <span class="ml-2">阅读辅助</span>
+    </div>
+
+    <div class="reading-assistant" id="readingAssistant">
+        <div class="reading-controls">
+            <button class="reading-control-btn" id="playPauseBtn" title="空格键暂停/继续">
+                <i class="fas fa-play"></i>
+                <span>播放</span>
+            </button>
+            
+            <button class="reading-control-btn" id="stopBtn" title="停止阅读">
+                <i class="fas fa-stop"></i>
+            </button>
+            
+            <div class="speed-control">
+                <i class="fas fa-tachometer-alt text-slate-400"></i>
+                <input type="range" class="speed-slider" id="speedSlider" 
+                       min="0.5" max="2" step="0.1" value="1" 
+                       title="调节阅读速度">
+                <span class="text-slate-400 text-sm" id="speedDisplay">1.0x</span>
+            </div>
+            
+            <button class="reading-control-btn" id="resetBtn" title="重新开始">
+                <i class="fas fa-redo"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="reading-focus-indicator" id="focusIndicator"></div>
+    <div class="reading-status" id="readingStatus"></div>
+
     <header id="compactHeader" class="fixed top-0 left-0 right-0 z-40 bg-[var(--primary-color)] py-3 px-6 hidden items-center tech-border shadow-lg">
         <div class="flex items-center">
             <i class="fas fa-brain text-blue-400 mr-3 text-xl"></i>

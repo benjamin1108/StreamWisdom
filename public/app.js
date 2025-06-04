@@ -440,6 +440,18 @@ class StreamWisdom {
             if (data.imageCount > 0) {
                 console.log(`文章包含 ${data.imageCount} 张图片，已处理图片信息`);
             }
+            
+            // 触发文章加载完成事件，显示阅读辅助功能
+            setTimeout(() => {
+                const event = new CustomEvent('articleLoaded', {
+                    detail: {
+                        content: data.result,
+                        wordCount: data.transformedLength,
+                        url: this.currentUrl
+                    }
+                });
+                document.dispatchEvent(event);
+            }, 500);
         }
         
         this.streamResultInitialized = false;
@@ -707,6 +719,18 @@ class StreamWisdom {
         setTimeout(() => {
             dynamicContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 300);
+        
+        // 触发文章加载完成事件，显示阅读辅助功能
+        setTimeout(() => {
+            const event = new CustomEvent('articleLoaded', {
+                detail: {
+                    content: content,
+                    wordCount: transformedLength,
+                    url: this.currentUrl
+                }
+            });
+            document.dispatchEvent(event);
+        }, 500);
     }
     
     renderStatsBadges(modelUsed, imageCount, transformedLength, originalLength) {
@@ -800,6 +824,11 @@ class StreamWisdom {
         if (urlInput) {
             urlInput.value = '';
             urlInput.focus();
+        }
+        
+        // 隐藏阅读辅助功能
+        if (window.readingAssistant) {
+            window.readingAssistant.hideToggleButton();
         }
         
         // 平滑滚动到顶部
@@ -1153,7 +1182,559 @@ URL：${this.currentUrl}
     }
 }
 
+// 阅读辅助功能类
+class ReadingAssistant {
+    constructor() {
+        this.isActive = false;
+        this.isPlaying = false;
+        this.currentIndex = 0;
+        this.segments = [];
+        this.timer = null;
+        this.speed = 1.0; // 阅读速度倍数
+        this.baseDelay = 800; // 基础延迟时间（毫秒）
+        this.currentHighlight = null;
+        this.focusIndicator = null;
+        
+        this.init();
+    }
+
+    init() {
+        this.bindEvents();
+        this.setupKeyboardShortcuts();
+    }
+
+    bindEvents() {
+        const readingToggle = document.getElementById('readingToggle');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const speedSlider = document.getElementById('speedSlider');
+
+        // 阅读辅助开关
+        if (readingToggle) {
+            readingToggle.addEventListener('click', () => this.toggleReadingAssistant());
+        }
+
+        // 播放/暂停按钮
+        if (playPauseBtn) {
+            playPauseBtn.addEventListener('click', () => this.togglePlayPause());
+        }
+
+        // 停止按钮
+        if (stopBtn) {
+            stopBtn.addEventListener('click', () => this.stop());
+        }
+
+        // 重置按钮
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => this.reset());
+        }
+
+        // 速度滑块
+        if (speedSlider) {
+            speedSlider.addEventListener('input', (e) => {
+                this.speed = parseFloat(e.target.value);
+                this.updateSpeedDisplay();
+            });
+        }
+    }
+
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // 只在阅读辅助激活时响应快捷键
+            if (!this.isActive) return;
+
+            // 阻止在输入框中触发快捷键
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    this.togglePlayPause();
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    this.stop();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    this.nextSegment();
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    this.previousSegment();
+                    break;
+                case 'Home':
+                    e.preventDefault();
+                    this.reset();
+                    break;
+            }
+        });
+    }
+
+    toggleReadingAssistant() {
+        const toggle = document.getElementById('readingToggle');
+        const assistant = document.getElementById('readingAssistant');
+
+        if (this.isActive) {
+            // 关闭阅读辅助
+            this.stop();
+            this.isActive = false;
+            toggle.classList.remove('active');
+            assistant.style.display = 'none';
+            this.clearHighlight();
+            this.hideStatus('阅读辅助已关闭');
+        } else {
+            // 开启阅读辅助
+            this.isActive = true;
+            toggle.classList.add('active');
+            assistant.style.display = 'block';
+            this.initializeReading();
+            this.showStatus('阅读辅助已开启，按空格键开始/暂停');
+        }
+    }
+
+    initializeReading() {
+        // 查找文章内容区域
+        const contentArea = document.querySelector('.markdown-content') || 
+                           document.querySelector('.content-area') ||
+                           document.querySelector('#resultContent');
+
+        if (!contentArea) {
+            this.showStatus('未找到可阅读的内容', 'error');
+            return;
+        }
+
+        // 分割文本为阅读段落
+        this.segments = this.segmentText(contentArea);
+        this.currentIndex = 0;
+        
+        // 初始化焦点指示器
+        this.initFocusIndicator();
+        
+        this.showStatus(`已准备 ${this.segments.length} 个阅读片段`);
+    }
+
+    segmentText(contentArea) {
+        const segments = [];
+        
+        // 重新设计分段策略：基于元素而非文本节点
+        const textElements = contentArea.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, div');
+        
+        textElements.forEach((element, elementIndex) => {
+            const text = element.textContent.trim();
+            if (text.length === 0) return;
+            
+            // 按句子分割文本
+            const sentences = this.splitIntoSentences(text);
+            
+            sentences.forEach((sentence, sentenceIndex) => {
+                if (sentence.trim().length > 0) {
+                    segments.push({
+                        text: sentence.trim(),
+                        element: element,
+                        elementIndex: elementIndex,
+                        sentenceIndex: sentenceIndex,
+                        originalText: text,
+                        startOffset: text.indexOf(sentence.trim()),
+                        endOffset: text.indexOf(sentence.trim()) + sentence.trim().length
+                    });
+                }
+            });
+        });
+
+        return segments;
+    }
+
+    splitIntoSentences(text) {
+        // 改进的分句算法
+        let sentences = [];
+        
+        // 先按主要标点分割
+        const parts = text.split(/([。！？；.!?;])/);
+        let current = '';
+        
+        for (let i = 0; i < parts.length; i += 2) {
+            const textPart = parts[i] || '';
+            const punctuation = parts[i + 1] || '';
+            
+            current += textPart + punctuation;
+            
+            if (punctuation && /[。！？；.!?;]/.test(punctuation)) {
+                if (current.trim().length > 0) {
+                    sentences.push(current.trim());
+                    current = '';
+                }
+            }
+        }
+        
+        // 添加剩余部分
+        if (current.trim().length > 0) {
+            sentences.push(current.trim());
+        }
+        
+        // 如果句子太长，按逗号进一步分割
+        const finalSentences = [];
+        sentences.forEach(sentence => {
+            if (sentence.length > 50 && (sentence.includes(',') || sentence.includes('，'))) {
+                const subParts = sentence.split(/([,，])/);
+                let subCurrent = '';
+                
+                for (let i = 0; i < subParts.length; i += 2) {
+                    const textPart = subParts[i] || '';
+                    const comma = subParts[i + 1] || '';
+                    
+                    subCurrent += textPart + comma;
+                    
+                    if (comma && subCurrent.trim().length > 15) {
+                        finalSentences.push(subCurrent.trim());
+                        subCurrent = '';
+                    }
+                }
+                
+                if (subCurrent.trim().length > 0) {
+                    finalSentences.push(subCurrent.trim());
+                }
+            } else {
+                finalSentences.push(sentence);
+            }
+        });
+        
+        return finalSentences.filter(s => s.trim().length > 0);
+    }
+
+    togglePlayPause() {
+        if (this.isPlaying) {
+            this.pause();
+        } else {
+            this.play();
+        }
+    }
+
+    play() {
+        if (!this.isActive || this.segments.length === 0) return;
+
+        this.isPlaying = true;
+        this.updatePlayButton();
+        this.startReading();
+        this.showStatus('正在阅读...');
+    }
+
+    pause() {
+        this.isPlaying = false;
+        this.updatePlayButton();
+        this.clearTimer();
+        this.showStatus('阅读已暂停，按空格继续');
+    }
+
+    stop() {
+        this.isPlaying = false;
+        this.currentIndex = 0;
+        this.updatePlayButton();
+        this.clearTimer();
+        this.clearHighlight();
+        this.showStatus('阅读已停止');
+    }
+
+    reset() {
+        this.stop();
+        this.currentIndex = 0;
+        this.showStatus('已重置到开头');
+    }
+
+    nextSegment() {
+        if (this.currentIndex < this.segments.length - 1) {
+            this.currentIndex++;
+            if (this.isPlaying) {
+                this.highlightCurrentSegment();
+                this.scheduleNext();
+            }
+        }
+    }
+
+    previousSegment() {
+        if (this.currentIndex > 0) {
+            this.currentIndex--;
+            if (this.isPlaying) {
+                this.highlightCurrentSegment();
+                this.scheduleNext();
+            }
+        }
+    }
+
+    startReading() {
+        if (!this.isPlaying || this.currentIndex >= this.segments.length) {
+            this.complete();
+            return;
+        }
+
+        this.highlightCurrentSegment();
+        this.scheduleNext();
+    }
+
+    scheduleNext() {
+        this.clearTimer();
+        
+        if (!this.isPlaying) return;
+
+        const currentSegment = this.segments[this.currentIndex];
+        const delay = this.calculateDelay(currentSegment.text);
+        
+        this.timer = setTimeout(() => {
+            this.currentIndex++;
+            this.startReading();
+        }, delay);
+    }
+
+    calculateDelay(text) {
+        // 根据文本长度和类型计算阅读延迟
+        const baseLength = text.length;
+        const hasComma = text.includes(',') || text.includes('，');
+        const hasPause = text.includes('|PAUSE|');
+        
+        let multiplier = 1;
+        
+        // 中文字符较多时适当放慢
+        const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+        if (chineseChars > baseLength * 0.7) {
+            multiplier *= 1.2;
+        }
+        
+        // 包含标点符号时增加停顿
+        if (hasComma) multiplier *= 1.3;
+        if (hasPause) multiplier *= 1.5;
+        
+        // 根据长度调整
+        const lengthFactor = Math.min(2, Math.max(0.5, baseLength / 15));
+        
+        return (this.baseDelay * lengthFactor * multiplier) / this.speed;
+    }
+
+    highlightCurrentSegment() {
+        this.clearHighlight();
+        
+        if (this.currentIndex >= this.segments.length) return;
+        
+        const segment = this.segments[this.currentIndex];
+        const element = segment.element;
+        
+        // 新的高亮策略：使用CSS类而不是替换DOM
+        this.highlightTextInElement(element, segment.text);
+        
+        // 滚动到当前位置
+        if (this.currentHighlight) {
+            this.scrollToElement(this.currentHighlight);
+            // 更新焦点指示器
+            this.updateFocusIndicator(this.currentHighlight);
+        } else {
+            this.scrollToElement(element);
+            this.updateFocusIndicator(element);
+        }
+    }
+
+    highlightTextInElement(element, targetText) {
+        // 清除之前的高亮
+        this.removeHighlightFromElement(element);
+        
+        // 查找并高亮文本
+        const walker = document.createTreeWalker(
+            element,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+        
+        let textNode;
+        while (textNode = walker.nextNode()) {
+            const text = textNode.textContent;
+            const index = text.indexOf(targetText);
+            
+            if (index !== -1) {
+                // 找到目标文本，创建高亮
+                this.createHighlightInTextNode(textNode, index, targetText.length);
+                break;
+            }
+        }
+    }
+
+    createHighlightInTextNode(textNode, startIndex, length) {
+        const text = textNode.textContent;
+        const beforeText = text.substring(0, startIndex);
+        const highlightText = text.substring(startIndex, startIndex + length);
+        const afterText = text.substring(startIndex + length);
+        
+        // 创建文档片段
+        const fragment = document.createDocumentFragment();
+        
+        // 添加前面的文本
+        if (beforeText) {
+            fragment.appendChild(document.createTextNode(beforeText));
+        }
+        
+        // 创建高亮span
+        const highlightSpan = document.createElement('span');
+        highlightSpan.className = 'reading-highlight';
+        highlightSpan.textContent = highlightText;
+        highlightSpan.setAttribute('data-reading-highlight', 'true');
+        fragment.appendChild(highlightSpan);
+        
+        // 添加后面的文本
+        if (afterText) {
+            fragment.appendChild(document.createTextNode(afterText));
+        }
+        
+        // 替换原文本节点
+        textNode.parentNode.replaceChild(fragment, textNode);
+        this.currentHighlight = highlightSpan;
+    }
+
+    removeHighlightFromElement(element) {
+        // 移除元素内所有的阅读高亮
+        const highlights = element.querySelectorAll('[data-reading-highlight="true"]');
+        highlights.forEach(highlight => {
+            const text = highlight.textContent;
+            highlight.parentNode.replaceChild(document.createTextNode(text), highlight);
+        });
+        
+        // 规范化文本节点
+        element.normalize();
+    }
+
+    clearHighlight() {
+        if (this.currentHighlight) {
+            const element = this.currentHighlight.closest('p, h1, h2, h3, h4, h5, h6, li, div');
+            if (element) {
+                this.removeHighlightFromElement(element);
+            }
+            this.currentHighlight = null;
+        }
+    }
+
+    scrollToElement(element) {
+        const rect = element.getBoundingClientRect();
+        const windowHeight = window.innerHeight;
+        
+        // 如果元素不在视窗中心区域，则滚动
+        if (rect.top < windowHeight * 0.3 || rect.bottom > windowHeight * 0.7) {
+            element.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'nearest'
+            });
+        }
+    }
+
+    initFocusIndicator() {
+        this.focusIndicator = document.getElementById('focusIndicator');
+        if (this.focusIndicator) {
+            this.focusIndicator.style.display = 'block';
+        }
+    }
+
+    updateFocusIndicator(element) {
+        if (!this.focusIndicator || !element) return;
+        
+        const rect = element.getBoundingClientRect();
+        const top = rect.top + window.scrollY - 10;
+        
+        this.focusIndicator.style.top = `${top}px`;
+        this.focusIndicator.style.display = 'block';
+    }
+
+    updatePlayButton() {
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const icon = playPauseBtn?.querySelector('i');
+        const text = playPauseBtn?.querySelector('span');
+        
+        if (this.isPlaying) {
+            if (icon) icon.className = 'fas fa-pause';
+            if (text) text.textContent = '暂停';
+            playPauseBtn?.classList.add('active');
+        } else {
+            if (icon) icon.className = 'fas fa-play';
+            if (text) text.textContent = '播放';
+            playPauseBtn?.classList.remove('active');
+        }
+    }
+
+    updateSpeedDisplay() {
+        const speedDisplay = document.getElementById('speedDisplay');
+        if (speedDisplay) {
+            speedDisplay.textContent = `${this.speed.toFixed(1)}x`;
+        }
+    }
+
+    complete() {
+        this.isPlaying = false;
+        this.updatePlayButton();
+        this.clearHighlight();
+        this.showStatus('阅读完成！按重置键重新开始');
+    }
+
+    clearTimer() {
+        if (this.timer) {
+            clearTimeout(this.timer);
+            this.timer = null;
+        }
+    }
+
+    showStatus(message, type = 'info') {
+        const statusElement = document.getElementById('readingStatus');
+        if (!statusElement) return;
+        
+        statusElement.textContent = message;
+        statusElement.style.display = 'block';
+        
+        // 自动隐藏状态
+        setTimeout(() => {
+            if (statusElement.textContent === message) {
+                statusElement.style.display = 'none';
+            }
+        }, 3000);
+    }
+
+    hideStatus() {
+        const statusElement = document.getElementById('readingStatus');
+        if (statusElement) {
+            statusElement.style.display = 'none';
+        }
+    }
+
+    // 在文章加载完成后自动显示阅读辅助开关
+    showToggleButton() {
+        const toggle = document.getElementById('readingToggle');
+        if (toggle) {
+            toggle.style.display = 'flex';
+        }
+    }
+
+    // 隐藏阅读辅助开关
+    hideToggleButton() {
+        const toggle = document.getElementById('readingToggle');
+        const assistant = document.getElementById('readingAssistant');
+        
+        if (toggle) {
+            toggle.style.display = 'none';
+        }
+        if (assistant) {
+            assistant.style.display = 'none';
+        }
+        
+        this.stop();
+        this.isActive = false;
+    }
+}
+
 // 初始化应用
 document.addEventListener('DOMContentLoaded', () => {
     window.streamWisdom = new StreamWisdom();
+    window.readingAssistant = new ReadingAssistant();
+    
+    // 监听文章加载完成事件
+    document.addEventListener('articleLoaded', () => {
+        // 延迟显示阅读辅助开关，让用户有时间适应
+        setTimeout(() => {
+            window.readingAssistant.showToggleButton();
+        }, 1000);
+    }); 
 }); 
