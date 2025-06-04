@@ -1,5 +1,5 @@
 {
-  "selectedModel": "qwen-max",
+  "selectedModel": "grok3-mini",
   "priority": [
     "grok3-mini",
     "groq-llama3",

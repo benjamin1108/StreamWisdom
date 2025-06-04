@@ -891,25 +891,96 @@ app.get('/api/models', (req, res) => {
         const modelStatus = availableModels.map(model => {
             const apiKey = modelManager.getDefaultApiKey(model.id);
             const hasValidKey = apiKey && apiKey !== 'test_key';
+            const isEnabled = modelManager.isModelEnabled(model.id);
+            
             return {
                 ...model,
                 hasValidKey,
+                isEnabled,
                 isSelected: model.id === selectedModel,
-                isCurrent: model.id === currentModel
+                isCurrent: model.id === currentModel,
+                // 添加状态描述
+                status: getModelStatus(model.id, hasValidKey, isEnabled, model.id === selectedModel, model.id === currentModel)
             };
         });
+
+        // 添加选择结果的说明
+        const selectionInfo = getSelectionExplanation(selectedModel, currentModel, modelStatus);
 
         res.json({
             selectedModel,
             currentModel,
             priority: modelPriority,
-            models: modelStatus
+            models: modelStatus,
+            selectionInfo
         });
     } catch (error) {
         console.error('获取模型配置失败:', error);
         res.status(500).json({ error: '获取模型配置失败' });
     }
 });
+
+// 辅助函数：获取模型状态描述
+function getModelStatus(modelId, hasValidKey, isEnabled, isSelected, isCurrent) {
+    if (!isEnabled) {
+        return { type: 'disabled', message: '模型已禁用' };
+    }
+    if (!hasValidKey) {
+        return { type: 'no_key', message: '缺少API密钥' };
+    }
+    if (isSelected && isCurrent) {
+        return { type: 'active', message: '选中且正在使用' };
+    }
+    if (isSelected && !isCurrent) {
+        return { type: 'selected_unavailable', message: '选中但不可用，已自动切换' };
+    }
+    if (!isSelected && isCurrent) {
+        return { type: 'fallback_active', message: '作为备选正在使用' };
+    }
+    if (hasValidKey && isEnabled) {
+        return { type: 'available', message: '可用' };
+    }
+    return { type: 'unknown', message: '状态未知' };
+}
+
+// 辅助函数：获取选择结果说明
+function getSelectionExplanation(selectedModel, currentModel, modelStatus) {
+    if (selectedModel === currentModel) {
+        return {
+            type: 'success',
+            message: `正在使用您选择的模型: ${getModelName(selectedModel, modelStatus)}`
+        };
+    } else if (selectedModel && currentModel !== selectedModel) {
+        const selectedModelInfo = modelStatus.find(m => m.id === selectedModel);
+        const currentModelInfo = modelStatus.find(m => m.id === currentModel);
+        
+        let reason = '未知原因';
+        if (selectedModelInfo && !selectedModelInfo.hasValidKey) {
+            reason = '缺少API密钥';
+        } else if (selectedModelInfo && !selectedModelInfo.isEnabled) {
+            reason = '模型已禁用';
+        }
+        
+        return {
+            type: 'fallback',
+            message: `您选择的模型 ${getModelName(selectedModel, modelStatus)} 不可用(${reason})，已自动切换到 ${getModelName(currentModel, modelStatus)}`,
+            selectedModel: selectedModelInfo?.name || selectedModel,
+            currentModel: currentModelInfo?.name || currentModel,
+            reason
+        };
+    } else {
+        return {
+            type: 'auto',
+            message: `自动选择最佳模型: ${getModelName(currentModel, modelStatus)}`
+        };
+    }
+}
+
+// 辅助函数：获取模型显示名称
+function getModelName(modelId, modelStatus) {
+    const model = modelStatus.find(m => m.id === modelId);
+    return model ? model.name : modelId;
+}
 
 // 根路径重定向到主页
 app.get('/', (req, res) => {
