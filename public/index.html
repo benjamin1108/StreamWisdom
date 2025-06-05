@@ -122,7 +122,6 @@
             box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
         }
         /* Inline styles are used for focusIndicator, so no dedicated class needed here */
-
         /* 自定义滚动条样式 - 科技风格 */
         .scrollbar-thin {
             scrollbar-width: thin;
@@ -144,7 +143,6 @@
         .scrollbar-thin::-webkit-scrollbar-thumb:hover {
             background: rgb(71 85 105 / 0.8);
         }
-
         /* Prose样式增强 - 更现代的排版 */
         .prose {
             max-width: none;
@@ -198,25 +196,44 @@
     <div id="initialViewContainer" class="max-w-7xl w-full scale-in space-y-6">
         <!-- Top: Brand Card -->
         <div class="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8 shadow-2xl">
-          <div class="text-center space-y-4">
-            <div class="flex items-center justify-center">
-              <i class="fas fa-brain mr-4 text-blue-400 text-6xl"></i>
-              <h1 class="text-6xl font-semibold text-white">悟流</h1>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <!-- Left: Brand Identity -->
+            <div class="text-center lg:text-left space-y-4">
+              <div class="flex items-center justify-center lg:justify-start">
+                <i class="fas fa-brain mr-4 text-blue-400 text-6xl"></i>
+                <h1 class="text-6xl font-semibold text-white">悟流</h1>
+              </div>
+              <h2 class="text-2xl text-slate-300 tracking-wide">STREAM OF WISDOM</h2>
+              <p class="text-xl text-slate-400">"将内容转化为知识，如种子在心中生根。"</p>
+              <div class="pt-4 space-y-2">
+                <p class="text-sm text-slate-500">开源项目 ｜ MIT 协议</p>
+                <a href="https://github.com/benjamin1108/StreamWisdom" target="_blank" class="text-blue-400 hover:underline inline-flex items-center">
+                  <i class="fab fa-github mr-2"></i>GitHub →
+                </a>
+              </div>
             </div>
-            <h2 class="text-2xl text-slate-300 tracking-wide">STREAM OF WISDOM</h2>
-            <p class="text-xl text-slate-400">"将内容转化为知识，如种子在心中生根。"</p>
-            <div class="pt-4 space-y-2">
-              <p class="text-sm text-slate-500">开源项目 ｜ MIT 协议</p>
-              <a href="https://github.com/benjamin1108/StreamWisdom" target="_blank" class="text-blue-400 hover:underline inline-flex items-center">
-                <i class="fab fa-github mr-2"></i>GitHub →
-              </a>
+            <!-- Right: Philosophy -->
+            <div class="text-center lg:text-left">
+              <div class="prose prose-invert max-w-none text-slate-400 text-sm leading-7 space-y-2">
+                <p>
+                    在信息泛滥的时代，从不缺少内容，而是缺少被转化的知识。
+                </p>
+                <p>
+                  悟流，不是将内容堆砌成塔，而是将意义沉淀成泉。我们相信，心智不是要被填满的容器，而是要被点燃的火焰。
+                </p>
+                <p>
+                  正如普鲁塔克所言，唯有激发，方能生出智慧；唯有流动，才有生机。在这里，知识不再是孤立的片段，而是流向你心中的一条河。
+                </p>
+                <p>
+                  我们不追求信息的占有，而更看重意义的觉知与转化。愿每一次阅读，都是一次内在的回响；愿每一场转化，都是一次与自我更深的相遇。
+                </p>
+              </div>
             </div>
           </div>
         </div>
-
         <!-- Bottom: Input and History Cards -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <!-- Left: Input Card -->
+            <!-- Left: Input Card -->
           <div class="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-lg p-4 space-y-3">
             <div class="space-y-2">
               <label for="urlInput" class="text-white text-sm font-medium flex items-center">
@@ -225,7 +242,6 @@
               <input type="url" id="urlInput" placeholder="https://example.com/article" 
                      class="w-full p-3 rounded-xl bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
             </div>
-
             <div class="grid grid-cols-1 gap-2">
               <div class="bg-slate-700/60 border border-slate-600 rounded-lg p-2 text-white flex items-center justify-between">
                 <label for="complexitySelect" class="flex items-center text-sm flex-shrink-0"><i class="fas fa-brain mr-2 text-blue-400"></i> 智能模式</label>

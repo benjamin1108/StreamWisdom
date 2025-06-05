@@ -52,31 +52,28 @@ class TransformationsHistory {
 
         const listHtml = `
             <div class="h-full flex flex-col">
-                <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-lg font-semibold text-slate-200 flex items-center">
+                <div class="flex items-center justify-between mb-2 gap-2">
+                    <h3 class="text-lg font-semibold text-slate-200 flex items-center flex-shrink-0">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                         转化历史 (${pagination.total})
                     </h3>
-                    <button onclick="transformationsHistory.loadTransformations(1, '')" 
-                            class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors">
-                        刷新
-                    </button>
-                </div>
-                
-                <!-- 搜索框 -->
-                <div class="mb-2">
-                    <div class="relative">
+                    <!-- 搜索框 -->
+                    <div class="relative flex-1 mx-3">
                         <input type="text" 
                                id="historySearchInput"
                                placeholder="搜索..." 
                                value="${this.searchQuery}"
-                               class="w-full px-3 py-2 pl-8 bg-slate-700 border border-slate-600 rounded text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent text-sm">
-                        <svg class="absolute left-2 top-2.5 w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                               class="w-full px-2 py-1 pl-5 bg-slate-700 border border-slate-600 rounded text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent text-xs">
+                        <svg class="absolute left-1.5 top-1.5 w-2.5 h-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
                     </div>
+                    <button onclick="transformationsHistory.loadTransformations(1, '')" 
+                            class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors flex-shrink-0">
+                        刷新
+                    </button>
                 </div>
                 
                 <!-- 转化列表 - 固定高度，滚动显示 -->
