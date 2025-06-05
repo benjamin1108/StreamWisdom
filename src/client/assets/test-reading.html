@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>阅读辅助功能测试 - 悟流</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #0f172a;
+            --secondary-color: #1e293b;
+            --accent-color: #3b82f6;
+            --text-light: #e2e8f0;
+            --text-muted: #94a3b8;
+            --glass-bg: rgba(15, 23, 42, 0.8);
+            --glass-border: rgba(59, 130, 246, 0.2);
+            --font-serif: 'Noto Serif SC', serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            min-height: 100vh;
+            color: var(--text-light);
+            font-family: var(--font-serif);
+        }
+
+        .markdown-content {
+            font-family: var(--font-serif);
+            line-height: 1.8;
+            color: var(--text-light);
+        }
+
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3 {
+            color: var(--accent-color);
+            margin: 1.5em 0 0.5em 0;
+            font-weight: 600;
+        }
+
+        .markdown-content h1 {
+            font-size: 1.5em;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 0.3em;
+        }
+
+        .markdown-content h2 {
+            font-size: 1.3em;
+        }
+
+        .markdown-content h3 {
+            font-size: 1.1em;
+        }
+
+        .markdown-content p {
+            margin: 1em 0;
+            text-align: justify;
+        }
+
+        /* 阅读高亮样式 */
+        .reading-highlight {
+            background: linear-gradient(120deg, rgba(59, 130, 246, 0.25) 0%, rgba(147, 197, 253, 0.15) 100%) !important;
+            border-radius: 4px;
+            padding: 2px 4px;
+            margin: 0 1px;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .reading-highlight::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            border-radius: 4px;
+            animation: shimmer 1.5s ease-in-out;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .reading-controls {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 280px;
+        }
+
+        .reading-control-btn {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: var(--accent-color);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .reading-control-btn:hover {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: var(--accent-color);
+        }
+
+        .reading-control-btn.active {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .speed-slider {
+            width: 80px;
+            height: 4px;
+            background: rgba(59, 130, 246, 0.3);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .speed-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .reading-focus-indicator {
+            position: fixed;
+            left: 10px;
+            width: 4px;
+            height: 60px;
+            background: linear-gradient(180deg, var(--accent-color), rgba(59, 130, 246, 0.5));
+            border-radius: 2px;
+            z-index: 999;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+            display: none;
+        }
+
+        .reading-status {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 12px 20px;
+            color: var(--text-light);
+            font-size: 14px;
+            z-index: 999;
+            display: none;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container mx-auto px-6 py-8 max-w-4xl">
+        <div class="mb-8 text-center">
+            <h1 class="text-3xl font-bold text-white mb-4">阅读辅助功能测试</h1>
+            <p class="text-slate-300">专为阅读困难症用户设计的友好阅读体验</p>
+        </div>
+
+        <!-- 阅读控制面板 -->
+        <div class="fixed top-4 right-4 z-50">
+            <div class="reading-controls">
+                <button class="reading-control-btn" id="playPauseBtn">
+                    <i class="fas fa-play"></i>
+                    <span>播放</span>
+                </button>
+                
+                <button class="reading-control-btn" id="stopBtn">
+                    <i class="fas fa-stop"></i>
+                </button>
+                
+                <div class="speed-control">
+                    <i class="fas fa-tachometer-alt text-slate-400"></i>
+                    <input type="range" class="speed-slider" id="speedSlider" 
+                           min="0.5" max="2" step="0.1" value="1">
+                    <span class="text-slate-400 text-sm" id="speedDisplay">1.0x</span>
+                </div>
+                
+                <button class="reading-control-btn" id="resetBtn">
+                    <i class="fas fa-redo"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 焦点指示器 -->
+        <div class="reading-focus-indicator" id="focusIndicator"></div>
+        
+        <!-- 状态显示 -->
+        <div class="reading-status" id="readingStatus"></div>
+
+        <!-- 测试内容 -->
+        <div class="bg-slate-800 bg-opacity-50 rounded-2xl p-8">
+            <div class="markdown-content" id="testContent">
+                <h1>人工智能的未来展望</h1>
+                
+                <p>人工智能（AI）正在深刻地改变着我们的世界。从智能手机中的语音助手，到自动驾驶汽车，再到医疗诊断系统，AI技术已经渗透到生活的方方面面。</p>
+                
+                <h2>技术发展趋势</h2>
+                
+                <p>在机器学习领域，深度学习技术持续突破。神经网络模型变得越来越复杂和强大，能够处理更加复杂的任务。同时，计算能力的提升也为AI的发展提供了强有力的支撑。</p>
+                
+                <p>自然语言处理（NLP）技术的进步尤为显著。大型语言模型如GPT系列、BERT等，在理解和生成人类语言方面展现出了惊人的能力。这些模型不仅能够进行对话，还能完成翻译、摘要、创作等复杂任务。</p>
+                
+                <h2>应用前景</h2>
+                
+                <p>在教育领域，AI可以提供个性化的学习体验，根据每个学生的学习情况和节奏，量身定制教学内容和方法。这将极大地提高教育效率和质量。</p>
+                
+                <p>在医疗健康方面，AI辅助诊断系统可以帮助医生更准确地识别疾病，提高诊断效率。同时，AI还能够协助药物研发，缩短新药上市时间。</p>
+                
+                <p>在工业制造中，智能机器人和自动化系统将进一步提高生产效率，降低成本，同时提升产品质量。</p>
+                
+                <h2>挑战与思考</h2>
+                
+                <p>然而，AI的发展也带来了一些挑战。隐私保护、算法偏见、就业影响等问题需要我们认真思考和解决。如何确保AI技术的发展能够造福全人类，而不是加剧社会不平等，是我们面临的重要课题。</p>
+                
+                <p>此外，AI系统的可解释性和透明度也是一个重要议题。我们需要能够理解AI是如何做出决策的，特别是在关键领域如医疗、金融和司法等方面。</p>
+                
+                <h2>结语</h2>
+                
+                <p>人工智能的未来充满了无限可能。通过合理的规划和负责任的发展，AI技术将为人类社会带来更多的便利和进步。让我们携手共创一个更加智能、更加美好的未来。</p>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center text-slate-400">
+            <p>💡 使用说明：点击"播放"按钮开始阅读辅助，空格键可暂停/继续，调节速度滑块改变阅读速度</p>
+        </div>
+    </div>
+
+    <script>
+        // 简化版阅读辅助功能
+        class SimpleReadingAssistant {
+            constructor() {
+                this.isPlaying = false;
+                this.currentIndex = 0;
+                this.segments = [];
+                this.timer = null;
+                this.speed = 1.0;
+                this.baseDelay = 800;
+                this.currentHighlight = null;
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+                this.setupKeyboardShortcuts();
+                this.initializeReading();
+            }
+
+            bindEvents() {
+                document.getElementById('playPauseBtn').addEventListener('click', () => this.togglePlayPause());
+                document.getElementById('stopBtn').addEventListener('click', () => this.stop());
+                document.getElementById('resetBtn').addEventListener('click', () => this.reset());
+                document.getElementById('speedSlider').addEventListener('input', (e) => {
+                    this.speed = parseFloat(e.target.value);
+                    this.updateSpeedDisplay();
+                });
+            }
+
+            setupKeyboardShortcuts() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                    
+                    switch (e.code) {
+                        case 'Space':
+                            e.preventDefault();
+                            this.togglePlayPause();
+                            break;
+                        case 'Escape':
+                            e.preventDefault();
+                            this.stop();
+                            break;
+                    }
+                });
+            }
+
+            initializeReading() {
+                const contentArea = document.getElementById('testContent');
+                this.segments = this.segmentText(contentArea);
+                this.showStatus(`已准备 ${this.segments.length} 个阅读片段`);
+            }
+
+            segmentText(contentArea) {
+                const segments = [];
+                
+                // 重新设计分段策略：基于元素而非文本节点
+                const textElements = contentArea.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, div');
+                
+                textElements.forEach((element, elementIndex) => {
+                    const text = element.textContent.trim();
+                    if (text.length === 0) return;
+                    
+                    // 按句子分割文本
+                    const sentences = this.splitIntoSentences(text);
+                    
+                    sentences.forEach((sentence, sentenceIndex) => {
+                        if (sentence.trim().length > 0) {
+                            segments.push({
+                                text: sentence.trim(),
+                                element: element,
+                                elementIndex: elementIndex,
+                                sentenceIndex: sentenceIndex,
+                                originalText: text,
+                                startOffset: text.indexOf(sentence.trim()),
+                                endOffset: text.indexOf(sentence.trim()) + sentence.trim().length
+                            });
+                        }
+                    });
+                });
+
+                return segments;
+            }
+
+            splitIntoSentences(text) {
+                // 改进的分句算法
+                let sentences = [];
+                
+                // 先按主要标点分割
+                const parts = text.split(/([。！？；.!?;])/);
+                let current = '';
+                
+                for (let i = 0; i < parts.length; i += 2) {
+                    const textPart = parts[i] || '';
+                    const punctuation = parts[i + 1] || '';
+                    
+                    current += textPart + punctuation;
+                    
+                    if (punctuation && /[。！？；.!?;]/.test(punctuation)) {
+                        if (current.trim().length > 0) {
+                            sentences.push(current.trim());
+                            current = '';
+                        }
+                    }
+                }
+                
+                // 添加剩余部分
+                if (current.trim().length > 0) {
+                    sentences.push(current.trim());
+                }
+                
+                // 如果句子太长，按逗号进一步分割
+                const finalSentences = [];
+                sentences.forEach(sentence => {
+                    if (sentence.length > 50 && (sentence.includes(',') || sentence.includes('，'))) {
+                        const subParts = sentence.split(/([,，])/);
+                        let subCurrent = '';
+                        
+                        for (let i = 0; i < subParts.length; i += 2) {
+                            const textPart = subParts[i] || '';
+                            const comma = subParts[i + 1] || '';
+                            
+                            subCurrent += textPart + comma;
+                            
+                            if (comma && subCurrent.trim().length > 15) {
+                                finalSentences.push(subCurrent.trim());
+                                subCurrent = '';
+                            }
+                        }
+                        
+                        if (subCurrent.trim().length > 0) {
+                            finalSentences.push(subCurrent.trim());
+                        }
+                    } else {
+                        finalSentences.push(sentence);
+                    }
+                });
+                
+                return finalSentences.filter(s => s.trim().length > 0);
+            }
+
+            togglePlayPause() {
+                if (this.isPlaying) {
+                    this.pause();
+                } else {
+                    this.play();
+                }
+            }
+
+            play() {
+                this.isPlaying = true;
+                this.updatePlayButton();
+                this.startReading();
+                this.showStatus('正在阅读...');
+            }
+
+            pause() {
+                this.isPlaying = false;
+                this.updatePlayButton();
+                this.clearTimer();
+                this.showStatus('阅读已暂停，按空格继续');
+            }
+
+            stop() {
+                this.isPlaying = false;
+                this.currentIndex = 0;
+                this.updatePlayButton();
+                this.clearTimer();
+                this.clearHighlight();
+                this.showStatus('阅读已停止');
+            }
+
+            reset() {
+                this.stop();
+                this.showStatus('已重置到开头');
+            }
+
+            startReading() {
+                if (!this.isPlaying || this.currentIndex >= this.segments.length) {
+                    this.complete();
+                    return;
+                }
+
+                this.highlightCurrentSegment();
+                this.scheduleNext();
+            }
+
+            scheduleNext() {
+                this.clearTimer();
+                if (!this.isPlaying) return;
+
+                const currentSegment = this.segments[this.currentIndex];
+                const delay = this.calculateDelay(currentSegment.text);
+                
+                this.timer = setTimeout(() => {
+                    this.currentIndex++;
+                    this.startReading();
+                }, delay);
+            }
+
+            calculateDelay(text) {
+                const baseLength = text.length;
+                const hasComma = text.includes(',') || text.includes('，');
+                
+                let multiplier = 1;
+                
+                const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+                if (chineseChars > baseLength * 0.7) {
+                    multiplier *= 1.2;
+                }
+                
+                if (hasComma) multiplier *= 1.3;
+                
+                const lengthFactor = Math.min(2, Math.max(0.5, baseLength / 15));
+                
+                return (this.baseDelay * lengthFactor * multiplier) / this.speed;
+            }
+
+            highlightCurrentSegment() {
+                this.clearHighlight();
+                
+                if (this.currentIndex >= this.segments.length) return;
+                
+                const segment = this.segments[this.currentIndex];
+                const element = segment.element;
+                
+                // 新的高亮策略：使用CSS类而不是替换DOM
+                this.highlightTextInElement(element, segment.text);
+                
+                // 滚动到当前位置
+                this.scrollToElement(element);
+                
+                // 更新焦点指示器
+                this.updateFocusIndicator(element);
+            }
+
+            highlightTextInElement(element, targetText) {
+                // 清除之前的高亮
+                this.removeHighlightFromElement(element);
+                
+                // 查找并高亮文本
+                const walker = document.createTreeWalker(
+                    element,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+                
+                let textNode;
+                while (textNode = walker.nextNode()) {
+                    const text = textNode.textContent;
+                    const index = text.indexOf(targetText);
+                    
+                    if (index !== -1) {
+                        // 找到目标文本，创建高亮
+                        this.createHighlightInTextNode(textNode, index, targetText.length);
+                        break;
+                    }
+                }
+            }
+
+            createHighlightInTextNode(textNode, startIndex, length) {
+                const text = textNode.textContent;
+                const beforeText = text.substring(0, startIndex);
+                const highlightText = text.substring(startIndex, startIndex + length);
+                const afterText = text.substring(startIndex + length);
+                
+                // 创建文档片段
+                const fragment = document.createDocumentFragment();
+                
+                // 添加前面的文本
+                if (beforeText) {
+                    fragment.appendChild(document.createTextNode(beforeText));
+                }
+                
+                // 创建高亮span
+                const highlightSpan = document.createElement('span');
+                highlightSpan.className = 'reading-highlight';
+                highlightSpan.textContent = highlightText;
+                highlightSpan.setAttribute('data-reading-highlight', 'true');
+                fragment.appendChild(highlightSpan);
+                
+                // 添加后面的文本
+                if (afterText) {
+                    fragment.appendChild(document.createTextNode(afterText));
+                }
+                
+                // 替换原文本节点
+                textNode.parentNode.replaceChild(fragment, textNode);
+                this.currentHighlight = highlightSpan;
+            }
+
+            removeHighlightFromElement(element) {
+                // 移除元素内所有的阅读高亮
+                const highlights = element.querySelectorAll('[data-reading-highlight="true"]');
+                highlights.forEach(highlight => {
+                    const text = highlight.textContent;
+                    highlight.parentNode.replaceChild(document.createTextNode(text), highlight);
+                });
+                
+                // 规范化文本节点
+                element.normalize();
+            }
+
+            clearHighlight() {
+                if (this.currentHighlight) {
+                    const element = this.currentHighlight.closest('p, h1, h2, h3, h4, h5, h6, li, div');
+                    if (element) {
+                        this.removeHighlightFromElement(element);
+                    }
+                    this.currentHighlight = null;
+                }
+            }
+
+            scrollToElement(element) {
+                const rect = element.getBoundingClientRect();
+                const windowHeight = window.innerHeight;
+                
+                if (rect.top < windowHeight * 0.3 || rect.bottom > windowHeight * 0.7) {
+                    element.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                        inline: 'nearest'
+                    });
+                }
+            }
+
+            updateFocusIndicator(element) {
+                const indicator = document.getElementById('focusIndicator');
+                if (!indicator || !element) return;
+                
+                const rect = element.getBoundingClientRect();
+                const top = rect.top + window.scrollY - 10;
+                
+                indicator.style.top = `${top}px`;
+                indicator.style.display = 'block';
+            }
+
+            updatePlayButton() {
+                const btn = document.getElementById('playPauseBtn');
+                const icon = btn.querySelector('i');
+                const text = btn.querySelector('span');
+                
+                if (this.isPlaying) {
+                    icon.className = 'fas fa-pause';
+                    text.textContent = '暂停';
+                    btn.classList.add('active');
+                } else {
+                    icon.className = 'fas fa-play';
+                    text.textContent = '播放';
+                    btn.classList.remove('active');
+                }
+            }
+
+            updateSpeedDisplay() {
+                document.getElementById('speedDisplay').textContent = `${this.speed.toFixed(1)}x`;
+            }
+
+            complete() {
+                this.isPlaying = false;
+                this.updatePlayButton();
+                this.clearHighlight();
+                this.showStatus('阅读完成！按重置键重新开始');
+            }
+
+            clearTimer() {
+                if (this.timer) {
+                    clearTimeout(this.timer);
+                    this.timer = null;
+                }
+            }
+
+            showStatus(message) {
+                const status = document.getElementById('readingStatus');
+                status.textContent = message;
+                status.style.display = 'block';
+                
+                setTimeout(() => {
+                    if (status.textContent === message) {
+                        status.style.display = 'none';
+                    }
+                }, 3000);
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            new SimpleReadingAssistant();
+        });
+    </script>
+</body>
+</html> 

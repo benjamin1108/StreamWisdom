@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>悟流 / Stream of Wisdom</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Serif SC', serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            /* Tailwind classes on body tag will handle flex centering and padding */
+        }
+        /* Essential styles for markdown, loading, etc., will be added here later */
+        select option {
+            background: #1e293b; /* slate-800 or a similar dark color */
+            color: #e2e8f0;       /* slate-200 or light text */
+        }
+        #streamToggle {
+            accent-color: #3b82f6; /* Tailwind blue-500 */
+        }
+        /* Markdown content styles */
+        .markdown-content {
+            font-family: 'Noto Serif SC', serif;
+            line-height: 1.8;
+            color: #e2e8f0; /* Tailwind slate-200 */
+        }
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3 {
+            font-family: 'Noto Serif SC', serif;
+            color: #3b82f6; /* Tailwind blue-500 */
+            margin: 1.5em 0 0.5em 0;
+            font-weight: 600;
+        }
+        .markdown-content h1 { font-size: 1.5em; border-bottom: 2px solid #3b82f6; padding-bottom: 0.3em; }
+        .markdown-content h2 { font-size: 1.3em; }
+        .markdown-content h3 { font-size: 1.1em; }
+        .markdown-content p { margin: 1em 0; text-align: justify; }
+        .markdown-content blockquote {
+            border-left: 4px solid #3b82f6;
+            padding-left: 1em;
+            margin: 1em 0;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 0 8px 8px 0;
+        }
+        .markdown-content code {
+            background: rgba(59, 130, 246, 0.2);
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-family: SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+        }
+        .markdown-content pre {
+            background: rgba(15, 23, 42, 0.8); /* slate-900 with opacity */
+            padding: 1em;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid rgba(59, 130, 246, 0.2); /* blue-500 with opacity */
+        }
+        .markdown-content pre code {
+            font-family: SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+        }
+        .markdown-content ul,
+        .markdown-content ol { padding-left: 2em; margin: 1em 0; }
+        .markdown-content li { margin: 0.5em 0; }
+        .markdown-content em,
+        .markdown-content i {
+            font-size: 0.85em;
+            color: rgba(148, 163, 184, 0.75); /* slate-400 with opacity */
+            opacity: 0.8;
+        }
+
+        /* Loading animation styles (used by stream-wisdom-ui.js) */
+        .loading-container { /* This class is on the div *inside* #loadingContainer that holds the spinner and text */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 1rem; /* Add some padding for content within the loading container */
+        }
+        .loading-circle {
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(59, 130, 246, 0.2); /* Tailwind blue-500 with opacity */
+            border-top-color: #3b82f6; /* Tailwind blue-500 */
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        .loading-pulse { display: flex; gap: 4px; margin: 20px 0; }
+        .loading-dot {
+            width: 8px; height: 8px; background: #3b82f6; /* Tailwind blue-500 */
+            border-radius: 50%;
+            animation: loadingPulse 1.4s ease-in-out infinite both;
+        }
+        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+        .loading-dot:nth-child(3) { animation-delay: 0; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes loadingPulse {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+        
+        /* General animation classes (used by UI functions) */
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .scale-in { animation: scaleIn 0.4s ease-out forwards; }
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Reading Assistant specific styles */
+        .reading-highlight {
+            background: linear-gradient(120deg, rgba(59, 130, 246, 0.25) 0%, rgba(147, 197, 253, 0.15) 100%) !important;
+            border-radius: 4px; padding: 2px 4px; margin: 0 1px;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+        }
+        /* Inline styles are used for focusIndicator, so no dedicated class needed here */
+
+        /* 自定义滚动条样式 - 科技风格 */
+        .scrollbar-thin {
+            scrollbar-width: thin;
+            scrollbar-color: rgb(71 85 105 / 0.5) rgb(30 41 59 / 0.5);
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: rgb(30 41 59 / 0.5);
+            border-radius: 10px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: rgb(71 85 105 / 0.5);
+            border-radius: 10px;
+            border: 1px solid rgb(30 41 59 / 0.3);
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: rgb(71 85 105 / 0.8);
+        }
+
+        /* Prose样式增强 - 更现代的排版 */
+        .prose {
+            max-width: none;
+        }
+        .prose-lg {
+            font-size: 1.125rem;
+            line-height: 1.7;
+        }
+        .prose-invert {
+            color: #e2e8f0;
+        }
+        .prose-invert h1,
+        .prose-invert h2,
+        .prose-invert h3,
+        .prose-invert h4 {
+            color: #60a5fa;
+            font-weight: 600;
+        }
+        .prose-invert blockquote {
+            border-left: 4px solid #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+            padding: 1rem 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .prose-invert code {
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+            padding: 0.25rem 0.375rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+        }
+        .prose-invert pre {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+        }
+        .prose-invert strong {
+            color: #f8fafc;
+            font-weight: 600;
+        }
+        .prose-invert em {
+            color: #cbd5e1;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center px-4 py-12 text-slate-200">
+    <!-- Container for the initial Bento Box UI -->
+    <div id="initialViewContainer" class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl w-full scale-in">
+        <!-- Left: Brand Card -->
+        <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-10 shadow-xl flex flex-col items-center text-center space-y-4">
+          <div class="flex items-center justify-center">
+            <i class="fas fa-brain mr-3 text-blue-400 text-5xl"></i>
+            <h1 class="text-5xl font-semibold text-white">悟流</h1>
+          </div>
+          <h2 class="text-xl text-slate-300 tracking-wide">STREAM OF WISDOM</h2>
+          <p class="text-lg text-slate-400">“将内容转化为知识，如种子在心中生根。”</p>
+          <div class="pt-4 space-y-2">
+            <p class="text-sm text-slate-500">开源项目 ｜ MIT 协议</p>
+            <a href="https://github.com/benjamin1108/StreamWisdom" target="_blank" class="text-blue-400 hover:underline inline-flex items-center">
+              <i class="fab fa-github mr-2"></i>GitHub →
+            </a>
+          </div>
+        </div>
+
+        <!-- Right: Input Card -->
+        <div class="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl shadow-lg p-10 space-y-6">
+          <div class="space-y-2">
+            <label for="urlInput" class="text-white text-sm font-medium flex items-center">
+                <i class="fas fa-link mr-2 text-slate-400"></i> 粘贴需要转化的网址或文章链接
+            </label>
+            <input type="url" id="urlInput" placeholder="https://example.com/article" 
+                   class="w-full p-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3 text-white flex items-center justify-between min-w-0">
+              <label for="complexitySelect" class="flex items-center text-sm whitespace-nowrap flex-shrink-0"><i class="fas fa-brain mr-2 text-blue-400"></i> 智能模式</label>
+              <div class="relative flex items-center">
+                <select id="complexitySelect" class="bg-transparent text-white outline-none appearance-none text-sm cursor-pointer px-2 py-1 pr-6" style="max-width: 100px;">
+                  <option value="default">自动识别</option>
+                  <option value="concise">简化提炼</option>
+                  <option value="detailed">结构优先</option>
+                  <option value="key_points">核心要点</option>
+                </select>
+                <i class="fas fa-chevron-down text-slate-400 text-xs absolute right-1 pointer-events-none"></i>
+              </div>
+            </div>
+
+            <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3 text-white flex items-center justify-between">
+              <label for="streamToggle" class="flex items-center text-sm cursor-pointer"><i class="fas fa-water mr-2 text-sky-400"></i> 流式输出</label>
+              <input type="checkbox" id="streamToggle" class="h-5 w-5 rounded cursor-pointer scale-110" checked> <!-- accent-blue-500 is applied via CSS rule #streamToggle -->
+            </div>
+          </div>
+
+          <button id="transformBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold text-lg hover:from-blue-600 hover:to-indigo-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-blue-500 flex items-center justify-center">
+            <i class="fas fa-wand-magic-sparkles mr-2"></i> 开始转化
+          </button>
+        </div>
+    </div> <!-- End of initialViewContainer -->
+
+    <!-- Container for loading indicators -->
+    <div id="loadingContainer" class="fixed inset-0 z-50 flex flex-col items-center justify-center hidden bg-slate-900 bg-opacity-90 backdrop-blur-sm p-4">
+        <!-- JS will inject loading animation here -->
+    </div>
+
+    <!-- Container for dynamic results or error messages -->
+    <div id="dynamicContainer" class="w-full max-w-4xl mx-auto my-8 px-4 hidden">
+        <!-- JS will inject results/errors here -->
+    </div>
+    
+    <!-- Temporary message container (optional, if displayTemporaryMessage is used) -->
+    <!-- <div id="temporary-message-container" class="fixed top-6 right-6 z-[100] flex flex-col gap-3"></div> -->
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+</html> 
