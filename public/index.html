@@ -205,7 +205,7 @@
           <p class="text-lg text-slate-400">“将内容转化为知识，如种子在心中生根。”</p>
           <div class="pt-4 space-y-2">
             <p class="text-sm text-slate-500">开源项目 ｜ MIT 协议</p>
-            <a href="https://github.com/your-repo/streamwisdom" target="_blank" class="text-blue-400 hover:underline inline-flex items-center">
+            <a href="https://github.com/benjamin1108/StreamWisdom" target="_blank" class="text-blue-400 hover:underline inline-flex items-center">
               <i class="fab fa-github mr-2"></i>GitHub →
             </a>
           </div>
@@ -222,14 +222,17 @@
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3 text-white flex flex-col items-start space-y-1">
-              <label for="complexitySelect" class="flex items-center text-sm"><i class="fas fa-brain mr-2 text-blue-400"></i> 智能模式</label>
-              <select id="complexitySelect" class="bg-transparent text-white outline-none appearance-none text-sm w-full cursor-pointer">
-                <option value="default">自动识别</option>
-                <option value="concise">简化提炼</option>
-                <option value="detailed">结构优先</option>
-                <option value="key_points">核心要点</option>
-              </select>
+            <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3 text-white flex items-center justify-between min-w-0">
+              <label for="complexitySelect" class="flex items-center text-sm whitespace-nowrap flex-shrink-0"><i class="fas fa-brain mr-2 text-blue-400"></i> 智能模式</label>
+              <div class="relative flex items-center">
+                <select id="complexitySelect" class="bg-transparent text-white outline-none appearance-none text-sm cursor-pointer px-2 py-1 pr-6" style="max-width: 100px;">
+                  <option value="default">自动识别</option>
+                  <option value="concise">简化提炼</option>
+                  <option value="detailed">结构优先</option>
+                  <option value="key_points">核心要点</option>
+                </select>
+                <i class="fas fa-chevron-down text-slate-400 text-xs absolute right-1 pointer-events-none"></i>
+              </div>
             </div>
 
             <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3 text-white flex items-center justify-between">

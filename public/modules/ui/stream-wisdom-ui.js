@@ -478,10 +478,48 @@ export function displayRegularResultView(data, callbacks) {
     }
 }
 
+let userHasScrolledManually = false;
+let scrollEventHandlerAttached = false; // Flag to ensure listener is added only once
+
+function handleUserScroll() {
+    userHasScrolledManually = true;
+    console.log("用户手动滚动，自动滚动已禁用"); // For debugging
+}
+
+// Function to re-enable auto-scroll if needed, e.g., by a button
+// export function enableAutoScroll() {
+//     userHasScrolledManually = false;
+//     // console.log("Auto-scroll re-enabled."); // For debugging
+// }
+
+// Utility function to check if the user is near the bottom of the page
+// function isScrolledToBottom() {
+//     // Consider a small threshold for "near bottom"
+//     const threshold = 50; // pixels
+//     return (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - threshold);
+// }
+
 export function displayStreamResultLayout(callbacks) {
     setViewVisibility(false, false, true); // Hide initial & loading, show dynamic for stream layout
     const dynamicContainer = document.getElementById('dynamicContainer');
     if (!dynamicContainer) return null;
+
+    userHasScrolledManually = false; // Reset for new stream
+
+    if (!scrollEventHandlerAttached) {
+        // 监听多种滚动事件
+        window.addEventListener('wheel', handleUserScroll, { passive: true });
+        window.addEventListener('scroll', handleUserScroll, { passive: true });
+        window.addEventListener('touchmove', handleUserScroll, { passive: true });
+        // 监听键盘滚动
+        window.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'PageUp' || e.key === 'PageDown' || e.key === 'Home' || e.key === 'End') {
+                handleUserScroll();
+            }
+        }, { passive: true });
+        scrollEventHandlerAttached = true;
+        console.log("滚动事件监听器已附加"); // For debugging
+    }
 
     // 简约科技风布局 - 内容自然展开
     dynamicContainer.className = 'w-full max-w-6xl mx-auto my-6 px-0 sm:px-4 fade-in';
@@ -559,8 +597,14 @@ export function appendContentToStreamView(typingTextElement, typingCursorElement
         // However, for markdown, re-rendering the whole thing is usually safer for complex structures.
         // If performance becomes an issue with large streams, consider more granular DOM appends.
         typingTextElement.innerHTML = renderMarkdown(currentFullContent + newChunk);
-        // Auto-scroll to latest content
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        
+        // Auto-scroll to latest content ONLY if the user hasn't scrolled manually
+        if (!userHasScrolledManually) {
+            console.log("执行自动滚动"); // For debugging
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        } else {
+            console.log("用户已手动滚动，跳过自动滚动"); // For debugging
+        }
     }
     if (typingCursorElement) {
         typingCursorElement.classList.remove('hidden');
