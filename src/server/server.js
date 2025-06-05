@@ -1,4 +1,5 @@
 const express = require('express');
+const session = require('express-session');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const cors = require('cors');
@@ -6,19 +7,44 @@ const path = require('path');
 const fs = require('fs').promises;
 const ModelManager = require('./lib/modelManager');
 const PDFExtractor = require('./lib/pdfExtractor');
+const DatabaseManager = require('./lib/database');
+const FileCleanupManager = require('./lib/fileCleanup');
+const UrlUtils = require('./lib/urlUtils');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 const HOST = '0.0.0.0';
 
-// 初始化模型管理器和PDF提取器
+// 管理员配置
+const ADMIN_CONFIG = {
+    username: process.env.admin || 'admin',
+    password: process.env.password || 'password'
+};
+
+// 初始化管理器
 const modelManager = new ModelManager();
 const pdfExtractor = new PDFExtractor();
+const databaseManager = new DatabaseManager();
+const fileCleanupManager = new FileCleanupManager(databaseManager);
+const urlUtils = new UrlUtils();
 
 // 中间件
 app.use(cors());
 app.use(express.json());
+
+// 会话配置
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'stream-wisdom-secret-key-2024',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: false, // 开发环境设为false，生产环境应该为true（需要HTTPS）
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // 24小时
+    }
+}));
+
 app.use(express.static('public'));
 
 // 缓存对象
@@ -465,6 +491,95 @@ async function transformContent(extractedData, style, complexity) {
 }
 
 // API路由
+
+// 管理员登录API
+app.post('/api/admin/login', (req, res) => {
+    try {
+        const { username, password } = req.body;
+        
+        if (!username || !password) {
+            return res.status(400).json({ error: '用户名和密码不能为空' });
+        }
+        
+        if (username === ADMIN_CONFIG.username && password === ADMIN_CONFIG.password) {
+            req.session.isAdmin = true;
+            req.session.loginTime = new Date();
+            console.log('管理员登录成功');
+            res.json({ success: true, message: '登录成功' });
+        } else {
+            console.log('管理员登录失败：用户名或密码错误');
+            res.status(401).json({ error: '用户名或密码错误' });
+        }
+    } catch (error) {
+        console.error('管理员登录错误:', error);
+        res.status(500).json({ error: '登录失败' });
+    }
+});
+
+// 管理员登出API
+app.post('/api/admin/logout', (req, res) => {
+    try {
+        req.session.destroy((err) => {
+            if (err) {
+                console.error('登出失败:', err);
+                return res.status(500).json({ error: '登出失败' });
+            }
+            res.json({ success: true, message: '登出成功' });
+        });
+    } catch (error) {
+        console.error('登出错误:', error);
+        res.status(500).json({ error: '登出失败' });
+    }
+});
+
+// 检查管理员状态API
+app.get('/api/admin/status', (req, res) => {
+    res.json({ 
+        isAdmin: !!req.session.isAdmin,
+        loginTime: req.session.loginTime || null
+    });
+});
+
+// URL检查API - 检查是否已存在转化
+app.post('/api/check-url', async (req, res) => {
+    try {
+        const { url } = req.body;
+        if (!url) {
+            return res.status(400).json({ error: '缺少URL参数' });
+        }
+
+        // 标准化URL
+        const normalizedUrl = urlUtils.normalizeUrl(url);
+        console.log(`检查URL重复: ${url} -> ${normalizedUrl}`);
+
+        // 查询数据库中是否已存在相同的标准化URL
+        const existingTransformation = await databaseManager.getTransformationByUrl(normalizedUrl);
+
+        if (existingTransformation) {
+            res.json({
+                exists: true,
+                isAdmin: !!req.session.isAdmin, // 添加管理员状态
+                transformation: {
+                    uuid: existingTransformation.uuid,
+                    title: existingTransformation.title,
+                    created_at: existingTransformation.created_at,
+                    style: existingTransformation.style,
+                    complexity: existingTransformation.complexity,
+                    shareUrl: `${req.protocol}://${req.get('host')}/share/${existingTransformation.uuid}`
+                }
+            });
+        } else {
+            res.json({ 
+                exists: false,
+                isAdmin: !!req.session.isAdmin
+            });
+        }
+    } catch (error) {
+        console.error('URL检查失败:', error);
+        res.status(500).json({ error: 'URL检查失败' });
+    }
+});
+
 app.post('/api/transform', async (req, res) => {
     try {
         const { url, complexity = 'beginner' } = req.body;
@@ -498,6 +613,39 @@ app.post('/api/transform', async (req, res) => {
         // 获取实际使用的模型信息
         const usedModel = modelManager.selectBestModel();
         
+        // 生成标题（从URL或内容中提取）
+        let title = '';
+        try {
+            const urlObj = new URL(url);
+            title = urlObj.hostname + urlObj.pathname;
+            // 尝试从转化内容中提取更好的标题
+            const titleMatch = result.match(/^#\s*(.+)$/m);
+            if (titleMatch) {
+                title = titleMatch[1].trim();
+            }
+        } catch {
+            title = url.substring(0, 100);
+        }
+        
+        // 保存转化结果到数据库
+        let transformationUuid = null;
+        try {
+            const normalizedUrl = urlUtils.normalizeUrl(url);
+            const saveResult = await databaseManager.saveTransformation({
+                title: title,
+                originalUrl: normalizedUrl, // 保存标准化的URL
+                transformedContent: result,
+                style: 'auto',
+                complexity: complexity,
+                imageCount: extractedData.imageCount,
+                images: extractedData.images
+            });
+            transformationUuid = saveResult.uuid;
+            console.log(`转化结果已保存到数据库，UUID: ${transformationUuid}`);
+        } catch (saveError) {
+            console.error('保存到数据库失败:', saveError);
+        }
+        
         res.json({ 
             success: true, 
             result: result,
@@ -509,7 +657,9 @@ app.post('/api/transform', async (req, res) => {
                 title: img.title,
                 caption: img.caption
             })), // 只返回安全的图片信息，不包含完整URL
-            model: usedModel
+            model: usedModel,
+            shareUrl: transformationUuid ? `${req.protocol}://${req.get('host')}/share/${transformationUuid}` : null,
+            uuid: transformationUuid
         });
         
     } catch (error) {
@@ -590,6 +740,39 @@ app.post('/api/transform-stream', async (req, res) => {
             
             console.log(`流式内容转化成功，转化后长度: ${result.length} 字符`);
             
+            // 生成标题（从URL或内容中提取）
+            let title = '';
+            try {
+                const urlObj = new URL(url);
+                title = urlObj.hostname + urlObj.pathname;
+                // 尝试从转化内容中提取更好的标题
+                const titleMatch = result.match(/^#\s*(.+)$/m);
+                if (titleMatch) {
+                    title = titleMatch[1].trim();
+                }
+            } catch {
+                title = url.substring(0, 100);
+            }
+            
+            // 保存转化结果到数据库
+            let transformationUuid = null;
+            try {
+                const normalizedUrl = urlUtils.normalizeUrl(url);
+                const saveResult = await databaseManager.saveTransformation({
+                    title: title,
+                    originalUrl: normalizedUrl, // 保存标准化的URL
+                    transformedContent: result,
+                    style: 'auto',
+                    complexity: complexity,
+                    imageCount: extractedData.imageCount,
+                    images: extractedData.images
+                });
+                transformationUuid = saveResult.uuid;
+                console.log(`转化结果已保存到数据库，UUID: ${transformationUuid}`);
+            } catch (saveError) {
+                console.error('保存到数据库失败:', saveError);
+            }
+            
             // 发送完成信息
             res.write(`data: ${JSON.stringify({ 
                 type: 'complete', 
@@ -604,7 +787,9 @@ app.post('/api/transform-stream', async (req, res) => {
                         title: img.title,
                         caption: img.caption
                     })),
-                    model: usedModel
+                    model: usedModel,
+                    shareUrl: transformationUuid ? `${req.protocol}://${req.get('host')}/share/${transformationUuid}` : null,
+                    uuid: transformationUuid
                 }
             })}\n\n`);
             
@@ -1006,13 +1191,378 @@ function getModelName(modelId, modelStatus) {
     return model ? model.name : modelId;
 }
 
+// 新增API接口 - 获取已转化文件列表
+app.get('/api/transformations', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const offset = (page - 1) * limit;
+        const search = req.query.search || '';
+        
+        let transformations;
+        let total;
+        
+        if (search) {
+            transformations = await databaseManager.searchTransformations(search, limit);
+            total = transformations.length;
+        } else {
+            transformations = await databaseManager.getAllTransformations(limit, offset);
+            total = await databaseManager.getTransformationCount();
+        }
+        
+        res.json({
+            success: true,
+            data: transformations,
+            isAdmin: !!req.session.isAdmin, // 添加管理员状态
+            pagination: {
+                page: page,
+                limit: limit,
+                total: total,
+                pages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        console.error('获取转化列表失败:', error);
+        res.status(500).json({ error: '获取转化列表失败' });
+    }
+});
+
+// 根据UUID获取转化内容
+app.get('/api/transformations/:uuid', async (req, res) => {
+    try {
+        const { uuid } = req.params;
+        const transformation = await databaseManager.getTransformationByUuid(uuid);
+        
+        if (!transformation) {
+            return res.status(404).json({ error: '转化内容不存在' });
+        }
+        
+        res.json({
+            success: true,
+            data: transformation
+        });
+    } catch (error) {
+        console.error('获取转化内容失败:', error);
+        res.status(500).json({ error: '获取转化内容失败' });
+    }
+});
+
+// 分享页面 - 通过UUID访问转化内容
+app.get('/share/:uuid', async (req, res) => {
+    try {
+        const { uuid } = req.params;
+        const transformation = await databaseManager.getTransformationByUuid(uuid);
+        
+        if (!transformation) {
+            return res.status(404).send(`
+                <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>内容不存在 - 悟流</title>
+                        <style>
+                            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+                                   padding: 2rem; text-align: center; }
+                            .error { color: #ef4444; }
+                        </style>
+                    </head>
+                    <body>
+                        <h1 class="error">内容不存在</h1>
+                        <p>您访问的转化内容不存在或已被删除。</p>
+                        <a href="/">返回首页</a>
+                    </body>
+                </html>
+            `);
+        }
+        
+        // 生成分享页面HTML
+        const shareHtml = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${transformation.title} - 悟流分享</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Serif SC', serif; }
+        .markdown-content { 
+            line-height: 1.8; 
+            font-size: 1.125rem; /* 调整为与转化文本页面一致的字体大小 */
+            color: #e2e8f0;
+        }
+        .markdown-content h1, .markdown-content h2, .markdown-content h3 { 
+            color: #3b82f6; margin: 1.5em 0 0.5em 0; font-weight: 600; 
+        }
+        .markdown-content h1 { font-size: 1.5em; border-bottom: 2px solid #3b82f6; padding-bottom: 0.3em; }
+        .markdown-content h2 { font-size: 1.3em; }
+        .markdown-content h3 { font-size: 1.1em; }
+        .markdown-content p { margin: 1em 0; text-align: justify; }
+        .markdown-content blockquote {
+            border-left: 4px solid #3b82f6; padding-left: 1em; margin: 1em 0;
+            background: rgba(59, 130, 246, 0.1); border-radius: 0 8px 8px 0;
+        }
+        .markdown-content code {
+            background: rgba(59, 130, 246, 0.2); padding: 0.2em 0.4em; border-radius: 4px;
+            font-family: SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+        }
+        .markdown-content pre {
+            background: rgba(15, 23, 42, 0.8); padding: 1em; border-radius: 8px; overflow-x: auto;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+        .markdown-content pre code {
+            font-family: SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+        }
+        .markdown-content ul, .markdown-content ol { padding-left: 2em; margin: 1em 0; }
+        .markdown-content li { margin: 0.5em 0; }
+        .markdown-content em, .markdown-content i {
+            font-size: 0.85em; color: rgba(148, 163, 184, 0.75); opacity: 0.8;
+        }
+        .source-link {
+            color: #60a5fa;
+            text-decoration: none;
+            border-bottom: 1px solid rgba(96, 165, 250, 0.3);
+            transition: all 0.2s ease;
+        }
+        .source-link:hover {
+            color: #93c5fd;
+            border-bottom-color: #93c5fd;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
+    <div class="container mx-auto max-w-6xl p-6"> <!-- 调整宽度与转化文本页面一致 -->
+        <div class="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden">
+            <!-- 品牌头部 -->
+            <div class="bg-gradient-to-r from-slate-800/80 to-blue-800/80 px-8 py-6 border-b border-slate-700/50">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <!-- 品牌标识 -->
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                                <i class="fas fa-brain text-white text-xl"></i>
+                            </div>
+                            <div class="text-white">
+                                <div class="text-xl font-semibold flex items-center space-x-2">
+                                    <span>悟流</span>
+                                    <span class="text-sm font-normal text-slate-300">/ Stream of Wisdom</span>
+                                </div>
+                                <div class="text-xs text-slate-400 opacity-75">将内容转化为知识，知识于在心中生根。</div>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="/" class="text-slate-300 hover:text-white transition-colors p-2 rounded-lg hover:bg-slate-700/50">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                    </a>
+                </div>
+                
+                <!-- 文章信息 -->
+                <div class="mt-4 pt-4 border-t border-slate-700/50">
+                    <h1 class="text-xl font-semibold text-white mb-3">${transformation.title}</h1>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-6 text-sm text-slate-300 space-y-2 sm:space-y-0">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                            </svg>
+                            <a href="${transformation.original_url}" target="_blank" rel="noopener noreferrer" class="source-link">
+                                原文链接
+                            </a>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>${new Date(transformation.created_at).toLocaleDateString('zh-CN')} ${new Date(transformation.created_at).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'})}</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            <span>复杂度: ${transformation.complexity === 'beginner' ? '初学者' : transformation.complexity === 'intermediate' ? '中级' : transformation.complexity === 'advanced' ? '高级' : transformation.complexity}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 内容区域 -->
+            <div class="px-8 py-6">
+                <div class="markdown-content prose prose-slate prose-invert max-w-none text-slate-200" id="markdownContent">
+                    <!-- 内容将由JavaScript渲染 -->
+                </div>
+            </div>
+            <script>
+                // 配置marked.js
+                if (typeof marked !== 'undefined') {
+                    marked.setOptions({
+                        breaks: true,
+                        gfm: true,
+                        headerIds: false,
+                        mangle: false
+                    });
+                }
+                
+                // 渲染Markdown内容
+                const markdownContent = \`${transformation.transformed_content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`;
+                const contentElement = document.getElementById('markdownContent');
+                
+                if (contentElement && typeof marked !== 'undefined') {
+                    try {
+                        contentElement.innerHTML = marked.parse(markdownContent);
+                    } catch (error) {
+                        console.error('Markdown rendering error:', error);
+                        // 降级到纯文本显示
+                        contentElement.innerHTML = '<p>' + markdownContent.replace(/\\n/g, '<br>') + '</p>';
+                    }
+                } else {
+                    // 降级到纯文本显示
+                    if (contentElement) {
+                        contentElement.innerHTML = '<p>' + markdownContent.replace(/\\n/g, '<br>') + '</p>';
+                    }
+                }
+            </script>
+            <div class="mt-8 pt-6 border-t text-center">
+                <a href="/" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                    返回悟流首页
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+        `;
+        
+        res.send(shareHtml);
+    } catch (error) {
+        console.error('获取分享内容失败:', error);
+        res.status(500).send('服务器错误');
+    }
+});
+
+// 删除转化内容（仅管理员）
+app.delete('/api/transformations/:uuid', async (req, res) => {
+    try {
+        // 检查管理员权限
+        if (!req.session.isAdmin) {
+            return res.status(403).json({ error: '需要管理员权限' });
+        }
+
+        const { uuid } = req.params;
+        const deletedCount = await databaseManager.deleteTransformation(uuid);
+        
+        if (deletedCount === 0) {
+            return res.status(404).json({ error: '转化内容不存在' });
+        }
+
+        console.log(`管理员删除转化记录: ${uuid}`);
+        res.json({
+            success: true,
+            message: '删除成功'
+        });
+    } catch (error) {
+        console.error('删除转化内容失败:', error);
+        res.status(500).json({ error: '删除转化内容失败' });
+    }
+});
+
+// 清理统计API
+app.get('/api/cleanup/status', (req, res) => {
+    try {
+        const status = fileCleanupManager.getStatus();
+        res.json({
+            success: true,
+            data: status
+        });
+    } catch (error) {
+        console.error('获取清理状态失败:', error);
+        res.status(500).json({ error: '获取清理状态失败' });
+    }
+});
+
+// 手动执行清理
+app.post('/api/cleanup/manual', async (req, res) => {
+    try {
+        const deletedCount = await fileCleanupManager.cleanupMissingFiles();
+        res.json({
+            success: true,
+            message: `清理完成，删除了 ${deletedCount} 个无效记录`
+        });
+    } catch (error) {
+        console.error('手动清理失败:', error);
+        res.status(500).json({ error: '手动清理失败' });
+    }
+});
+
+// 结果页面路由 - 与分享页面使用相同的数据但不同的展示
+app.get('/result/:uuid', async (req, res) => {
+    try {
+        const { uuid } = req.params;
+        const transformation = await databaseManager.getTransformationByUuid(uuid);
+        
+        if (!transformation) {
+            // 如果转化不存在，重定向到主页
+            return res.redirect('/');
+        }
+        
+        // 返回主页HTML，但带有数据标记，让前端知道要显示转化结果
+        const html = await fs.readFile(path.join(__dirname, '../../public', 'index.html'), 'utf-8');
+        
+        // 在HTML中注入转化数据
+        const htmlWithData = html.replace(
+            '<script type="module" src="/app.js"></script>',
+            `<script>
+                window.INITIAL_TRANSFORMATION_DATA = ${JSON.stringify(transformation)};
+                window.INITIAL_TRANSFORMATION_UUID = '${uuid}';
+            </script>
+            <script type="module" src="/app.js"></script>`
+        );
+        
+        res.send(htmlWithData);
+    } catch (error) {
+        console.error('获取结果页面失败:', error);
+        res.redirect('/');
+    }
+});
+
 // 根路径重定向到主页
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, '../../public', 'index.html'));
 });
 
 // 启动服务器
-app.listen(PORT, HOST, () => {
-    console.log(`悟流服务器运行在 http://${HOST}:${PORT}`);
-    console.log('按 Ctrl+C 停止服务器');
-});
+async function startServer() {
+    try {
+        // 初始化数据库
+        await databaseManager.init();
+        
+        // 启动文件清理定时任务
+        fileCleanupManager.startPeriodicCleanup();
+        
+        // 启动HTTP服务器
+        app.listen(PORT, HOST, () => {
+            console.log(`悟流服务器运行在 http://${HOST}:${PORT}`);
+            console.log('数据库已初始化');
+            console.log('文件清理任务已启动');
+            console.log('按 Ctrl+C 停止服务器');
+        });
+        
+        // 优雅关闭
+        process.on('SIGINT', () => {
+            console.log('\n正在关闭服务器...');
+            fileCleanupManager.stopPeriodicCleanup();
+            databaseManager.close();
+            process.exit(0);
+        });
+        
+    } catch (error) {
+        console.error('服务器启动失败:', error);
+        process.exit(1);
+    }
+}
+
+startServer();

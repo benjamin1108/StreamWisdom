@@ -6,7 +6,7 @@ class ModelManager {
             'grok3-mini': {
                 name: 'Grok 3 Mini',
                 apiUrl: 'https://api.x.ai/v1/chat/completions',
-                model: 'grok-3',
+                model: 'grok-3-mini',
                 maxTokens: 9999,
                 temperature: 0.7,
                 timeout: 30000,

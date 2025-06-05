@@ -270,7 +270,7 @@ export function displayErrorView(message, onRetry, onBackHome, onReport) {
     if (!dynamicContainer) return;
 
     const errorHtml = `
-        <div class="container mx-auto px-6 py-8 max-w-4xl relative">
+        <div class="container mx-auto px-6 py-8 max-w-5xl relative">
             <div class="glass-card rounded-2xl p-8 border-l-4 border-red-500 fade-in">
                 <button id="closeErrorBtn" aria-label="关闭错误提示" class="absolute top-4 right-5 text-slate-500 hover:text-slate-200 transition-colors duration-150">
                     <i class="fas fa-times text-2xl"></i>

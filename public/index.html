@@ -25,6 +25,7 @@
         .markdown-content {
             font-family: 'Noto Serif SC', serif;
             line-height: 1.8;
+            font-size: 1.125rem; /* 调整为与分享页面一致的字体大小 */
             color: #e2e8f0; /* Tailwind slate-200 */
         }
         .markdown-content h1,
@@ -192,58 +193,74 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center px-4 py-12 text-slate-200">
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center px-4 py-12 text-slate-200">
     <!-- Container for the initial Bento Box UI -->
-    <div id="initialViewContainer" class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl w-full scale-in">
-        <!-- Left: Brand Card -->
-        <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-10 shadow-xl flex flex-col items-center text-center space-y-4">
-          <div class="flex items-center justify-center">
-            <i class="fas fa-brain mr-3 text-blue-400 text-5xl"></i>
-            <h1 class="text-5xl font-semibold text-white">悟流</h1>
-          </div>
-          <h2 class="text-xl text-slate-300 tracking-wide">STREAM OF WISDOM</h2>
-          <p class="text-lg text-slate-400">“将内容转化为知识，如种子在心中生根。”</p>
-          <div class="pt-4 space-y-2">
-            <p class="text-sm text-slate-500">开源项目 ｜ MIT 协议</p>
-            <a href="https://github.com/benjamin1108/StreamWisdom" target="_blank" class="text-blue-400 hover:underline inline-flex items-center">
-              <i class="fab fa-github mr-2"></i>GitHub →
-            </a>
+    <div id="initialViewContainer" class="max-w-7xl w-full scale-in space-y-6">
+        <!-- Top: Brand Card -->
+        <div class="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8 shadow-2xl">
+          <div class="text-center space-y-4">
+            <div class="flex items-center justify-center">
+              <i class="fas fa-brain mr-4 text-blue-400 text-6xl"></i>
+              <h1 class="text-6xl font-semibold text-white">悟流</h1>
+            </div>
+            <h2 class="text-2xl text-slate-300 tracking-wide">STREAM OF WISDOM</h2>
+            <p class="text-xl text-slate-400">"将内容转化为知识，如种子在心中生根。"</p>
+            <div class="pt-4 space-y-2">
+              <p class="text-sm text-slate-500">开源项目 ｜ MIT 协议</p>
+              <a href="https://github.com/benjamin1108/StreamWisdom" target="_blank" class="text-blue-400 hover:underline inline-flex items-center">
+                <i class="fab fa-github mr-2"></i>GitHub →
+              </a>
+            </div>
           </div>
         </div>
 
-        <!-- Right: Input Card -->
-        <div class="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl shadow-lg p-10 space-y-6">
-          <div class="space-y-2">
-            <label for="urlInput" class="text-white text-sm font-medium flex items-center">
-                <i class="fas fa-link mr-2 text-slate-400"></i> 粘贴需要转化的网址或文章链接
-            </label>
-            <input type="url" id="urlInput" placeholder="https://example.com/article" 
-                   class="w-full p-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-          </div>
+        <!-- Bottom: Input and History Cards -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Left: Input Card -->
+          <div class="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-lg p-4 space-y-3">
+            <div class="space-y-2">
+              <label for="urlInput" class="text-white text-sm font-medium flex items-center">
+                  <i class="fas fa-link mr-2 text-slate-400"></i> 粘贴需要转化的网址或文章链接
+              </label>
+              <input type="url" id="urlInput" placeholder="https://example.com/article" 
+                     class="w-full p-3 rounded-xl bg-slate-700/50 border border-slate-600/50 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3 text-white flex items-center justify-between min-w-0">
-              <label for="complexitySelect" class="flex items-center text-sm whitespace-nowrap flex-shrink-0"><i class="fas fa-brain mr-2 text-blue-400"></i> 智能模式</label>
-              <div class="relative flex items-center">
-                <select id="complexitySelect" class="bg-transparent text-white outline-none appearance-none text-sm cursor-pointer px-2 py-1 pr-6" style="max-width: 100px;">
-                  <option value="default">自动识别</option>
-                  <option value="concise">简化提炼</option>
-                  <option value="detailed">结构优先</option>
-                  <option value="key_points">核心要点</option>
-                </select>
-                <i class="fas fa-chevron-down text-slate-400 text-xs absolute right-1 pointer-events-none"></i>
+            <div class="grid grid-cols-1 gap-2">
+              <div class="bg-slate-700/60 border border-slate-600 rounded-lg p-2 text-white flex items-center justify-between">
+                <label for="complexitySelect" class="flex items-center text-sm flex-shrink-0"><i class="fas fa-brain mr-2 text-blue-400"></i> 智能模式</label>
+                <div class="relative flex items-center">
+                  <select id="complexitySelect" class="bg-transparent text-white outline-none appearance-none text-xs cursor-pointer px-2 py-1 pr-5">
+                    <option value="default">自动识别</option>
+                    <option value="concise">简化提炼</option>
+                    <option value="detailed">结构优先</option>
+                    <option value="key_points">核心要点</option>
+                  </select>
+                  <i class="fas fa-chevron-down text-slate-400 text-xs absolute right-1 pointer-events-none"></i>
+                </div>
+              </div>
+
+              <div class="bg-slate-700/60 border border-slate-600 rounded-lg p-2 text-white flex items-center justify-between">
+                <label for="streamToggle" class="flex items-center text-sm cursor-pointer"><i class="fas fa-water mr-2 text-sky-400"></i> 流式输出</label>
+                <input type="checkbox" id="streamToggle" class="h-4 w-4 rounded cursor-pointer" checked> <!-- accent-blue-500 is applied via CSS rule #streamToggle -->
               </div>
             </div>
 
-            <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3 text-white flex items-center justify-between">
-              <label for="streamToggle" class="flex items-center text-sm cursor-pointer"><i class="fas fa-water mr-2 text-sky-400"></i> 流式输出</label>
-              <input type="checkbox" id="streamToggle" class="h-5 w-5 rounded cursor-pointer scale-110" checked> <!-- accent-blue-500 is applied via CSS rule #streamToggle -->
-            </div>
+            <button id="transformBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-blue-500 flex items-center justify-center">
+              <i class="fas fa-wand-magic-sparkles mr-2"></i> 开始转化
+            </button>
           </div>
 
-          <button id="transformBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold text-lg hover:from-blue-600 hover:to-indigo-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-blue-500 flex items-center justify-center">
-            <i class="fas fa-wand-magic-sparkles mr-2"></i> 开始转化
-          </button>
+          <!-- Right: History Card -->
+          <div id="transformationsHistory" class="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-lg p-4 h-[280px]">
+                      <div class="text-center text-slate-400 py-4">
+              <svg class="w-8 h-8 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <p class="text-base mb-2">转化历史</p>
+              <p class="text-sm">正在加载...</p>
+            </div>
+          </div>
         </div>
     </div> <!-- End of initialViewContainer -->
 
@@ -261,6 +278,18 @@
     <!-- <div id="temporary-message-container" class="fixed top-6 right-6 z-[100] flex flex-col gap-3"></div> -->
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script type="module" src="app.js"></script>
+    <script src="/modules/transformationsHistory.js"></script>
+    <script type="module" src="/app.js"></script>
+    <script>
+        // 页面加载完成后初始化转化历史
+        document.addEventListener('DOMContentLoaded', function() {
+            // 延迟加载转化历史，避免阻塞主要功能
+            setTimeout(() => {
+                if (window.transformationsHistory) {
+                    transformationsHistory.loadTransformations();
+                }
+            }, 1000);
+        });
+    </script>
 </body>
 </html> 
