@@ -75,17 +75,22 @@ export function getStatsText(modelUsed, imageCount, transformedLength) {
 
 export async function copyToClipboard(text) {
     try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
+        // 检查Clipboard API是否可用（包括安全上下文检查）
+        if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
             await navigator.clipboard.writeText(text);
             return true;
         } else {
+            // 降级到传统的document.execCommand方法
             const textArea = document.createElement('textarea');
             textArea.value = text;
             textArea.style.position = 'fixed'; 
-            textArea.style.left = '-9999px';
+            textArea.style.left = '-999px';
+            textArea.style.top = '-999px';
+            textArea.style.opacity = '0';
             document.body.appendChild(textArea);
             textArea.focus();
             textArea.select();
+            
             try {
                 const successful = document.execCommand('copy');
                 document.body.removeChild(textArea);

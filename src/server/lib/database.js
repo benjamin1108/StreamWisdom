@@ -218,7 +218,7 @@ class DatabaseManager {
         });
     }
 
-    async searchTransformations(query, limit = 20) {
+    async searchTransformations(query, limit = 20, offset = 0) {
         return new Promise((resolve, reject) => {
             const sql = `
                 SELECT id, uuid, title, original_url, style, complexity, 
@@ -226,15 +226,33 @@ class DatabaseManager {
                 FROM transformations 
                 WHERE title LIKE ? OR original_url LIKE ? OR transformed_content LIKE ?
                 ORDER BY created_at DESC 
-                LIMIT ?
+                LIMIT ? OFFSET ?
             `;
             
             const searchTerm = `%${query}%`;
-            this.db.all(sql, [searchTerm, searchTerm, searchTerm, limit], (err, rows) => {
+            this.db.all(sql, [searchTerm, searchTerm, searchTerm, limit, offset], (err, rows) => {
                 if (err) {
                     reject(err);
                 } else {
                     resolve(rows);
+                }
+            });
+        });
+    }
+
+    async getSearchTransformationCount(query) {
+        return new Promise((resolve, reject) => {
+            const sql = `
+                SELECT COUNT(*) as count FROM transformations 
+                WHERE title LIKE ? OR original_url LIKE ? OR transformed_content LIKE ?
+            `;
+            
+            const searchTerm = `%${query}%`;
+            this.db.get(sql, [searchTerm, searchTerm, searchTerm], (err, row) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(row.count);
                 }
             });
         });

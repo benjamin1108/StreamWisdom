@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  stream-wisdom:
+    build: .
+    container_name: stream-wisdom-app
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      # AI模型API密钥（在 .env 文件中配置）
+      - XAI_API_KEY=${XAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # 管理员配置
+      - admin=${ADMIN_USERNAME:-admin}
+      - password=${ADMIN_PASSWORD:-password}
+      # 会话密钥
+      - SESSION_SECRET=${SESSION_SECRET:-stream-wisdom-secret-key-2024}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 开发环境配置
+  stream-wisdom-dev:
+    build: .
+    container_name: stream-wisdom-dev
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=development
+      - PORT=8080
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
+    profiles:
+      - dev 

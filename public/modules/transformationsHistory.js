@@ -1,39 +1,56 @@
 // 转化历史管理器
 class TransformationsHistory {
     constructor() {
-        this.currentPage = 1;
-        this.pageSize = 10;
+        this.offset = 0;
+        this.limit = 20;
         this.searchQuery = '';
         this.transformations = [];
         this.isLoading = false;
+        this.hasMore = true;
         this.isAdmin = false; // 管理员状态
+        this.scrollContainer = null;
     }
 
     // 获取转化历史列表
-    async loadTransformations(page = 1, search = '') {
-        if (this.isLoading) return;
+    async loadTransformations(search = '', reset = false) {
+        if (this.isLoading || (!this.hasMore && !reset)) return;
         
         this.isLoading = true;
-        this.currentPage = page;
-        this.searchQuery = search;
+        
+        // 如果是重置（搜索或刷新），清空数据
+        if (reset || search !== this.searchQuery) {
+            this.transformations = [];
+            this.offset = 0;
+            this.hasMore = true;
+            this.searchQuery = search;
+        }
         
         try {
             const params = new URLSearchParams({
-                page: page,
-                limit: this.pageSize
+                offset: this.offset,
+                limit: this.limit
             });
             
-            if (search) {
-                params.append('search', search);
+            if (this.searchQuery) {
+                params.append('search', this.searchQuery);
             }
             
             const response = await fetch(`/api/transformations?${params}`);
             const result = await response.json();
             
             if (result.success) {
-                this.transformations = result.data;
-                this.isAdmin = result.isAdmin || false; // 保存管理员状态
-                this.renderTransformationsList(result.pagination);
+                const newTransformations = result.data;
+                
+                // 追加新数据
+                this.transformations = [...this.transformations, ...newTransformations];
+                
+                // 更新分页状态
+                this.offset += newTransformations.length;
+                this.hasMore = newTransformations.length === this.limit;
+                this.isAdmin = result.isAdmin || false;
+                
+                // 渲染列表
+                this.renderTransformationsList(result.pagination, reset);
             } else {
                 throw new Error(result.error || '获取转化历史失败');
             }
@@ -46,59 +63,95 @@ class TransformationsHistory {
     }
 
     // 渲染转化历史列表
-    renderTransformationsList(pagination) {
+    renderTransformationsList(pagination, reset = false) {
         const container = document.getElementById('transformationsHistory');
         if (!container) return;
 
-        const listHtml = `
-            <div class="h-full flex flex-col">
-                <div class="flex items-center justify-between mb-2 gap-2">
-                    <h3 class="text-lg font-semibold text-slate-200 flex items-center flex-shrink-0">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        转化历史 (${pagination.total})
-                    </h3>
-                    <!-- 搜索框 -->
-                    <div class="relative flex-1 mx-3">
-                        <input type="text" 
-                               id="historySearchInput"
-                               placeholder="搜索..." 
-                               value="${this.searchQuery}"
-                               class="w-full px-2 py-1 pl-5 bg-slate-700 border border-slate-600 rounded text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent text-xs">
-                        <svg class="absolute left-1.5 top-1.5 w-2.5 h-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
+        if (reset || !this.scrollContainer) {
+            // 初始化或重置时，重新创建整个列表
+            const listHtml = `
+                <div class="h-full flex flex-col">
+                    <div class="flex items-center justify-between mb-2 gap-2">
+                        <h3 class="text-lg font-semibold text-slate-200 flex items-center flex-shrink-0">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            转化历史 (${pagination?.total || this.transformations.length})
+                        </h3>
+                        <!-- 搜索框 -->
+                        <div class="relative flex-1 mx-3">
+                            <input type="text" 
+                                   id="historySearchInput"
+                                   placeholder="搜索..." 
+                                   value="${this.searchQuery}"
+                                   class="w-full px-2 py-1 pl-5 bg-slate-700 border border-slate-600 rounded text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent text-xs">
+                            <svg class="absolute left-1.5 top-1.5 w-2.5 h-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                        </div>
+                        <button onclick="transformationsHistory.loadTransformations('', true)" 
+                                class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors flex-shrink-0">
+                            刷新
+                        </button>
                     </div>
-                    <button onclick="transformationsHistory.loadTransformations(1, '')" 
-                            class="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors flex-shrink-0">
-                        刷新
-                    </button>
+                    
+                    <!-- 转化列表 - 无限滚动 -->
+                    <div id="transformationsScrollContainer" class="space-y-1 overflow-y-auto scrollbar-thin flex-1">
+                        <div id="transformationsList">
+                            ${this.transformations.map(item => this.renderTransformationItem(item)).join('')}
+                            ${this.transformations.length === 0 ? this.renderEmptyState() : ''}
+                        </div>
+                        ${this.hasMore ? this.renderLoadingIndicator() : this.renderEndIndicator()}
+                    </div>
                 </div>
+            `;
+            
+            container.innerHTML = listHtml;
+            this.scrollContainer = document.getElementById('transformationsScrollContainer');
+            this.setupScrollListener();
+            this.setupSearchListener();
+        } else {
+            // 追加模式，只更新列表内容
+            const listContainer = document.getElementById('transformationsList');
+            if (listContainer && this.transformations.length > 0) {
+                // 移除旧的加载指示器和结束指示器
+                const oldIndicators = this.scrollContainer.querySelectorAll('.loading-indicator, .end-indicator');
+                oldIndicators.forEach(indicator => indicator.remove());
                 
-                <!-- 转化列表 - 固定高度，滚动显示 -->
-                <div class="space-y-1 overflow-y-auto scrollbar-thin flex-1">
-                    ${this.transformations.map(item => this.renderTransformationItem(item)).join('')}
-                    ${this.transformations.length === 0 ? this.renderEmptyState() : ''}
-                </div>
+                // 更新列表内容
+                listContainer.innerHTML = this.transformations.map(item => this.renderTransformationItem(item)).join('');
                 
-                <!-- 分页 -->
-                <div class="flex-shrink-0 mt-2">
-                    ${this.renderPagination(pagination)}
-                </div>
-            </div>
-        `;
+                // 添加新的指示器
+                const indicatorHtml = this.hasMore ? this.renderLoadingIndicator() : this.renderEndIndicator();
+                this.scrollContainer.insertAdjacentHTML('beforeend', indicatorHtml);
+            }
+        }
+    }
+
+    // 设置滚动监听器
+    setupScrollListener() {
+        if (!this.scrollContainer) return;
         
-        container.innerHTML = listHtml;
-        
-        // 绑定搜索事件
+        this.scrollContainer.addEventListener('scroll', () => {
+            const { scrollTop, scrollHeight, clientHeight } = this.scrollContainer;
+            const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
+            
+            // 当滚动到85%时触发加载
+            if (scrollPercentage > 0.85 && this.hasMore && !this.isLoading) {
+                this.loadTransformations();
+            }
+        });
+    }
+
+    // 设置搜索监听器
+    setupSearchListener() {
         const searchInput = document.getElementById('historySearchInput');
         if (searchInput) {
             let searchTimeout;
             searchInput.addEventListener('input', (e) => {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
-                    this.loadTransformations(1, e.target.value);
+                    this.loadTransformations(e.target.value, true);
                 }, 500);
             });
         }
@@ -113,8 +166,17 @@ class TransformationsHistory {
             minute: '2-digit'
         });
         
-        // 处理complexity显示，去掉default字样
-        const complexityText = item.complexity === 'default' ? '自动识别' : item.complexity;
+        // 处理complexity显示，翻译为中文
+        const complexityMap = {
+            'default': '自动识别',
+            'concise': '简化提炼',
+            'detailed': '结构优先',
+            'key_points': '核心要点',
+            'beginner': '初学者',
+            'intermediate': '中级',
+            'advanced': '高级'
+        };
+        const complexityText = complexityMap[item.complexity] || item.complexity;
         
         return `
             <div class="bg-slate-700/50 rounded p-2 hover:bg-slate-700/70 transition-colors border border-slate-600/50 cursor-pointer" 
@@ -168,55 +230,37 @@ class TransformationsHistory {
                 <svg class="w-8 h-8 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
                 </svg>
-                <p class="text-base mb-2">暂无转化历史</p>
-                <p class="text-sm">开始转化第一个URL吧！</p>
+                <p class="text-base mb-2">没有转化记录</p>
+                <p class="text-base mb-2">开始转化知识吧！</p>
             </div>
         `;
     }
 
-    // 渲染分页
-    renderPagination(pagination) {
-        if (pagination.pages <= 1) return '';
+    // 渲染加载指示器
+    renderLoadingIndicator() {
+        return `
+            <div class="loading-indicator flex justify-center items-center py-4 text-slate-400">
+                <svg class="animate-spin w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="text-xs">加载中...</span>
+            </div>
+        `;
+    }
+
+    // 渲染结束指示器
+    renderEndIndicator() {
+        if (this.transformations.length === 0) return '';
         
-        const { page, pages } = pagination;
-        let paginationHtml = '<div class="flex justify-center items-center space-x-1 mt-3">';
-        
-        // 上一页
-        if (page > 1) {
-            paginationHtml += `
-                <button onclick="transformationsHistory.loadTransformations(${page - 1}, '${this.searchQuery}')" 
-                        class="px-2 py-1 bg-slate-600 text-slate-200 rounded hover:bg-slate-500 transition-colors text-xs">
-                    上一页
-                </button>
-            `;
-        }
-        
-        // 页码
-        const startPage = Math.max(1, page - 1);
-        const endPage = Math.min(pages, page + 1);
-        
-        for (let i = startPage; i <= endPage; i++) {
-            const isActive = i === page;
-            paginationHtml += `
-                <button onclick="transformationsHistory.loadTransformations(${i}, '${this.searchQuery}')" 
-                        class="px-2 py-1 ${isActive ? 'bg-blue-600 text-white' : 'bg-slate-600 text-slate-200 hover:bg-slate-500'} rounded transition-colors text-xs">
-                    ${i}
-                </button>
-            `;
-        }
-        
-        // 下一页
-        if (page < pages) {
-            paginationHtml += `
-                <button onclick="transformationsHistory.loadTransformations(${page + 1}, '${this.searchQuery}')" 
-                        class="px-2 py-1 bg-slate-600 text-slate-200 rounded hover:bg-slate-500 transition-colors text-xs">
-                    下一页
-                </button>
-            `;
-        }
-        
-        paginationHtml += '</div>';
-        return paginationHtml;
+        return `
+            <div class="end-indicator flex justify-center items-center py-4 text-slate-500">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                <span class="text-xs">已加载全部内容</span>
+            </div>
+        `;
     }
 
     // 查看转化内容
@@ -240,27 +284,93 @@ class TransformationsHistory {
     async shareTransformation(uuid) {
         const shareUrl = `${window.location.origin}/share/${uuid}`;
         
-        try {
-            await navigator.clipboard.writeText(shareUrl);
-            this.showSuccess('分享链接已复制到剪贴板');
-        } catch (error) {
-            console.error('复制失败:', error);
-            // 降级处理：使用传统方式复制
+        // 检查Clipboard API是否可用
+        if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
             try {
-                const textArea = document.createElement('textarea');
-                textArea.value = shareUrl;
-                textArea.style.position = 'fixed';
-                textArea.style.opacity = '0';
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
+                await navigator.clipboard.writeText(shareUrl);
                 this.showSuccess('分享链接已复制到剪贴板');
-            } catch (fallbackError) {
-                console.error('降级复制也失败:', fallbackError);
-                this.showError('复制失败，请手动复制：' + shareUrl);
+                return;
+            } catch (error) {
+                console.error('Clipboard API复制失败:', error);
+                // 继续尝试降级方法
             }
         }
+        
+        // 降级处理：使用传统方式复制
+        try {
+            const textArea = document.createElement('textarea');
+            textArea.value = shareUrl;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999px';
+            textArea.style.top = '-999px';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            if (successful) {
+                this.showSuccess('分享链接已复制到剪贴板');
+            } else {
+                throw new Error('execCommand复制失败');
+            }
+        } catch (fallbackError) {
+            console.error('降级复制也失败:', fallbackError);
+            // 最后的降级方案：显示可选择的文本
+            this.showCopyFallbackDialog(shareUrl);
+        }
+    }
+
+    // 显示复制降级对话框
+    showCopyFallbackDialog(shareUrl) {
+        const dialogHtml = `
+            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" id="copyFallbackDialog">
+                <div class="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-semibold text-white">手动复制链接</h3>
+                    </div>
+                    
+                    <div class="mb-4 text-gray-300">
+                        <p class="mb-3">自动复制失败，请手动选择并复制下面的链接：</p>
+                        <div class="bg-slate-700 border border-slate-600 rounded p-3">
+                            <input type="text" value="${shareUrl}" readonly 
+                                   class="w-full bg-transparent text-blue-300 text-sm focus:outline-none select-all" 
+                                   id="fallbackUrlInput" onclick="this.select()">
+                        </div>
+                        <p class="text-xs text-slate-400 mt-2">点击上方文本框即可全选链接</p>
+                    </div>
+                    
+                    <div class="flex space-x-3">
+                        <button onclick="document.getElementById('fallbackUrlInput').select(); document.getElementById('copyFallbackDialog').remove();" 
+                                class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                            选择并关闭
+                        </button>
+                        <button onclick="document.getElementById('copyFallbackDialog').remove();" 
+                                class="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', dialogHtml);
+        
+        // 自动选中输入框中的文本
+        setTimeout(() => {
+            const input = document.getElementById('fallbackUrlInput');
+            if (input) {
+                input.focus();
+                input.select();
+            }
+        }, 100);
     }
 
     // 删除转化内容（仅管理员）
@@ -284,7 +394,8 @@ class TransformationsHistory {
             
             if (result.success) {
                 this.showSuccess('删除成功');
-                this.loadTransformations(this.currentPage, this.searchQuery);
+                // 重新加载当前搜索结果
+                this.loadTransformations(this.searchQuery, true);
             } else {
                 throw new Error(result.error || '删除失败');
             }

@@ -97,8 +97,19 @@ async function extractUrlContent(url) {
             return pdfData;
         }
     } catch (pdfError) {
-        console.log('PDF提取失败，尝试常规HTML提取:', pdfError.message);
-        // 如果PDF提取失败，继续尝试HTML提取
+        // 检查是否是明确的PDF URL
+        const isPdfUrl = pdfExtractor.isPdfUrl(url) || url.toLowerCase().includes('.pdf') || 
+                        url.includes('/doi/pdf/') || url.includes('/content/pdf/') || 
+                        url.includes('/stamp/stamp.jsp') || url.includes('arxiv.org/pdf/');
+        
+        if (isPdfUrl) {
+            console.error('PDF提取失败，且URL明确指向PDF文件，停止处理:', pdfError.message);
+            // 对于明确的PDF URL，不要尝试HTML提取，直接抛出错误
+            throw new Error(`PDF文件处理失败：${pdfError.message}`);
+        } else {
+            console.log('PDF提取失败，但URL可能不是PDF，尝试常规HTML提取:', pdfError.message);
+            // 如果URL不明确是PDF，则继续尝试HTML提取
+        }
     }
 
     // 带重试的HTTP请求函数
@@ -1194,19 +1205,30 @@ function getModelName(modelId, modelStatus) {
 // 新增API接口 - 获取已转化文件列表
 app.get('/api/transformations', async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
+        // 支持两种分页方式：传统分页(page)和偏移分页(offset)
+        const page = parseInt(req.query.page);
+        const offset = parseInt(req.query.offset);
         const limit = parseInt(req.query.limit) || 20;
-        const offset = (page - 1) * limit;
         const search = req.query.search || '';
+        
+        // 计算实际offset
+        let actualOffset;
+        if (offset !== undefined) {
+            actualOffset = offset;
+        } else {
+            const actualPage = page || 1;
+            actualOffset = (actualPage - 1) * limit;
+        }
         
         let transformations;
         let total;
         
         if (search) {
-            transformations = await databaseManager.searchTransformations(search, limit);
-            total = transformations.length;
+            // 搜索模式：需要调整数据库方法支持offset
+            transformations = await databaseManager.searchTransformations(search, limit, actualOffset);
+            total = await databaseManager.getSearchTransformationCount(search);
         } else {
-            transformations = await databaseManager.getAllTransformations(limit, offset);
+            transformations = await databaseManager.getAllTransformations(limit, actualOffset);
             total = await databaseManager.getTransformationCount();
         }
         
@@ -1215,10 +1237,12 @@ app.get('/api/transformations', async (req, res) => {
             data: transformations,
             isAdmin: !!req.session.isAdmin, // 添加管理员状态
             pagination: {
-                page: page,
+                page: page || Math.floor(actualOffset / limit) + 1,
                 limit: limit,
+                offset: actualOffset,
                 total: total,
-                pages: Math.ceil(total / limit)
+                pages: Math.ceil(total / limit),
+                hasMore: actualOffset + transformations.length < total
             }
         });
     } catch (error) {
@@ -1423,7 +1447,7 @@ app.get('/share/:uuid', async (req, res) => {
                     }
                 }
             </script>
-            <div class="mt-8 pt-6 border-t text-center">
+            <div class="mt-8 pt-6 pb-8 border-t text-center">
                 <a href="/" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>

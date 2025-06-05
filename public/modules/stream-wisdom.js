@@ -222,7 +222,7 @@ export default class StreamWisdom {
             // 刷新转化历史列表
             if (window.transformationsHistory) {
                 setTimeout(() => {
-                    transformationsHistory.loadTransformations(1, '');
+                    transformationsHistory.loadTransformations('', true);
                 }, 500);
             }
         } catch (error) {
@@ -431,7 +431,7 @@ export default class StreamWisdom {
         // 刷新转化历史列表
         if (window.transformationsHistory) {
             setTimeout(() => {
-                transformationsHistory.loadTransformations(1, '');
+                transformationsHistory.loadTransformations('', true);
             }, 500);
         }
     }
@@ -756,7 +756,7 @@ export default class StreamWisdom {
         // 刷新历史记录以显示/隐藏删除按钮
         if (window.transformationsHistory) {
             setTimeout(() => {
-                transformationsHistory.loadTransformations(1, '');
+                transformationsHistory.loadTransformations('', true);
             }, 100);
         }
     }

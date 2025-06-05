@@ -7,11 +7,39 @@ class PDFExtractor {
         this.timeout = 30000; // 30秒超时
     }
 
+    // 为不同网站获取合适的Referer
+    getRefererForUrl(url) {
+        try {
+            const urlObj = new URL(url);
+            const hostname = urlObj.hostname.toLowerCase();
+            
+            if (hostname.includes('arxiv.org')) {
+                return 'https://arxiv.org/';
+            } else if (hostname.includes('dl.acm.org')) {
+                return 'https://dl.acm.org/';
+            } else if (hostname.includes('ieee.org')) {
+                return 'https://ieeexplore.ieee.org/';
+            } else if (hostname.includes('researchgate.net')) {
+                return 'https://www.researchgate.net/';
+            } else if (hostname.includes('springer.com')) {
+                return 'https://link.springer.com/';
+            } else if (hostname.includes('nature.com')) {
+                return 'https://www.nature.com/';
+            }
+            
+            // 对于其他网站，使用主域名作为Referer
+            return `https://${hostname}/`;
+        } catch (error) {
+            return undefined;
+        }
+    }
+
     // 检查URL是否是PDF
     isPdfUrl(url) {
         try {
             const urlObj = new URL(url);
             const pathname = urlObj.pathname.toLowerCase();
+            const hostname = urlObj.hostname.toLowerCase();
             
             // 检查文件扩展名
             if (pathname.endsWith('.pdf')) {
@@ -23,6 +51,23 @@ class PDFExtractor {
             if (searchParams.get('format') === 'pdf' || 
                 searchParams.get('type') === 'pdf' ||
                 pathname.includes('pdf')) {
+                return true;
+            }
+            
+            // 检查学术网站的PDF模式
+            if (hostname.includes('dl.acm.org') && pathname.includes('/doi/pdf/')) {
+                return true;
+            }
+            if (hostname.includes('ieeexplore.ieee.org') && pathname.includes('/stamp/')) {
+                return true;
+            }
+            if (hostname.includes('link.springer.com') && pathname.includes('/content/pdf/')) {
+                return true;
+            }
+            if (hostname.includes('arxiv.org') && pathname.includes('/pdf/')) {
+                return true;
+            }
+            if (hostname.includes('researchgate.net') && pathname.includes('.pdf')) {
                 return true;
             }
             
@@ -45,13 +90,29 @@ class PDFExtractor {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     'Accept': 'application/pdf,*/*',
                     'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-                    'Referer': url.includes('arxiv.org') ? 'https://arxiv.org/' : undefined
+                    'Referer': this.getRefererForUrl(url),
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
                 }
             });
 
             // 验证响应是否真的是PDF
             const contentType = response.headers['content-type'] || '';
             const buffer = Buffer.from(response.data);
+            
+            // 检查是否遇到了Cloudflare或其他反爬虫保护
+            const responseText = buffer.toString('utf8', 0, Math.min(1000, buffer.length));
+            if (responseText.includes('Just a moment...') || 
+                responseText.includes('Enable JavaScript and cookies') ||
+                responseText.includes('cf-mitigated') ||
+                responseText.includes('cloudflare')) {
+                if (url.includes('dl.acm.org')) {
+                    throw new Error('ACM数字图书馆启用了反爬虫保护，无法直接访问PDF。\n\n💡 建议：\n• 手动访问网站下载PDF后本地处理\n• 寻找该文章的开放获取版本\n• 使用机构网络访问');
+                } else {
+                    throw new Error('网站启用了反爬虫保护，需要浏览器环境才能访问');
+                }
+            }
             
             if (!contentType.includes('application/pdf') && !this.isPdfBuffer(buffer)) {
                 throw new Error('下载的文件不是有效的PDF格式');
@@ -66,7 +127,14 @@ class PDFExtractor {
             } else if (error.code === 'ERR_FR_MAX_CONTENT_LENGTH_EXCEEDED') {
                 throw new Error(`PDF文件过大（超过${this.maxPdfSize / 1024 / 1024}MB限制）`);
             } else if (error.response?.status === 403) {
-                throw new Error('PDF访问被拒绝，可能需要特殊权限或存在防盗链保护');
+                // 根据不同网站提供更具体的错误信息
+                if (url.includes('dl.acm.org')) {
+                    throw new Error('ACM数字图书馆PDF访问被拒绝。这可能是因为：\n\n🔒 访问限制：\n• 需要ACM会员权限或机构订阅\n• 文章可能不是开放获取（Open Access）\n• 需要通过学校或图书馆的网络访问\n\n🛡️ 反爬虫保护：\n• ACM使用了Cloudflare保护，阻止自动化访问\n\n💡 建议解决方案：\n• 通过有订阅权限的网络环境访问\n• 在Google Scholar或arXiv寻找该文章的开放版本\n• 联系作者获取预印本\n• 使用学校图书馆的数据库访问');
+                } else if (url.includes('ieee.org')) {
+                    throw new Error('IEEE PDF访问被拒绝，可能需要IEEE会员权限或机构订阅');
+                } else {
+                    throw new Error('PDF访问被拒绝，可能需要特殊权限或存在防盗链保护');
+                }
             } else if (error.response?.status === 404) {
                 throw new Error('PDF文件不存在');
             } else {
@@ -273,6 +341,25 @@ class PDFExtractor {
             // IEEE处理
             if (hostname.includes('ieee.org')) {
                 console.log('⚠️  IEEE PDF可能需要订阅权限');
+            }
+            
+            // ACM数字图书馆处理
+            if (hostname.includes('dl.acm.org')) {
+                console.log('⚠️  ACM数字图书馆PDF可能需要订阅权限');
+                // ACM的PDF链接通常需要特殊处理
+                if (url.includes('/doi/pdf/')) {
+                    // 提取DOI信息以便后续寻找开放获取版本
+                    const doiMatch = url.match(/\/doi\/pdf\/(10\.\d+\/[^\/?]+)/);
+                    if (doiMatch) {
+                        const doi = doiMatch[1];
+                        console.log(`📄 发现DOI: ${doi}`);
+                        console.log(`💡 可尝试在以下地方寻找开放获取版本:`);
+                        console.log(`   - Google Scholar: https://scholar.google.com/scholar?q=${encodeURIComponent(doi)}`);
+                        console.log(`   - Semantic Scholar: https://www.semanticscholar.org/search?q=${encodeURIComponent(doi)}`);
+                        console.log(`   - arXiv: https://arxiv.org/search/?query=${encodeURIComponent(doi)}`);
+                    }
+                    return url;
+                }
             }
             
             return url;

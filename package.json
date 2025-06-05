@@ -5,15 +5,34 @@
   "main": "src/server/server.js",
   "scripts": {
     "start": "node src/server/server.js",
-    "dev": "nodemon src/server/server.js"
+    "dev": "nodemon src/server/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "docker:build": "docker build -t stream-wisdom .",
+    "docker:run": "docker run -d --name stream-wisdom -p 8080:8080 stream-wisdom",
+    "docker:stop": "docker stop stream-wisdom && docker rm stream-wisdom",
+    "docker:dev": "docker-compose --profile dev up",
+    "docker:prod": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "clean": "rm -rf node_modules package-lock.json && npm install",
+    "audit": "npm audit && npm audit fix",
+    "health": "node scripts/healthcheck.js",
+    "deploy": "./scripts/deploy.sh"
   },
   "keywords": [
     "knowledge",
     "ai",
     "text-transformation",
-    "openai"
+    "content-extraction", 
+    "pdf-processing",
+    "web-scraping",
+    "nodejs",
+    "express",
+    "openai",
+    "groq",
+    "xai",
+    "qwen"
   ],
-  "author": "",
+  "author": "benjamin1108",
   "license": "MIT",
   "dependencies": {
     "axios": "^1.6.0",
@@ -31,6 +50,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/username/StreamOfWisdom.git"
+    "url": "https://github.com/benjamin1108/StreamWisdom.git"
+  },
+  "bugs": {
+    "url": "https://github.com/benjamin1108/StreamWisdom/issues"
+  },
+  "homepage": "https://github.com/benjamin1108/StreamWisdom#readme",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }
