@@ -6,854 +6,258 @@
     <title>悟流 / Stream of Wisdom</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdn.bootcdn.net/ajax/libs/marked/9.1.2/marked.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary-color: #0f172a;
-            --secondary-color: #1e293b;
-            --accent-color: #3b82f6;
-            --text-light: #e2e8f0;
-            --text-muted: #94a3b8;
-            --glass-bg: rgba(15, 23, 42, 0.8);
-            --glass-border: rgba(59, 130, 246, 0.2);
-            --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-            --font-serif: 'Noto Serif SC', serif;
-        }
-
         body {
-            font-family: var(--font-sans);
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-            min-height: 100vh;
-            color: var(--text-light); /* Default text color for body */
+            font-family: 'Noto Serif SC', serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            /* Tailwind classes on body tag will handle flex centering and padding */
         }
-
-        /* Ensure headings, buttons, inputs etc use sans-serif by default if not overridden by Tailwind */
-        h1, h2, h3, h4, h5, h6, button, input, select, textarea, label {
-            font-family: var(--font-sans);
+        /* Essential styles for markdown, loading, etc., will be added here later */
+        select option {
+            background: #1e293b; /* slate-800 or a similar dark color */
+            color: #e2e8f0;       /* slate-200 or light text */
         }
-
-        .glass-card {
-            backdrop-filter: blur(16px);
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        #streamToggle {
+            accent-color: #3b82f6; /* Tailwind blue-500 */
         }
-
-        .tech-border {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .tech-border::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
-            animation: borderSlide 3s infinite;
-        }
-
-        @keyframes borderSlide {
-            0% { left: -100%; }
-            50% { left: 100%; }
-            100% { left: 100%; }
-        }
-
-        .cyber-input {
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            transition: all 0.3s ease;
-        }
-
-        .cyber-input:focus {
-            background: rgba(15, 23, 42, 0.8);
-            border-color: var(--accent-color);
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-        }
-
-        .cyber-button {
-            background: linear-gradient(45deg, var(--accent-color), #6366f1);
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .cyber-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
-        }
-
-        .cyber-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s;
-        }
-
-        .cyber-button:hover::before {
-            left: 100%;
-        }
-
+        /* Markdown content styles */
         .markdown-content {
-            font-family: var(--font-serif);
+            font-family: 'Noto Serif SC', serif;
             line-height: 1.8;
-            color: var(--text-light);
+            color: #e2e8f0; /* Tailwind slate-200 */
         }
-
         .markdown-content h1,
         .markdown-content h2,
         .markdown-content h3 {
-            font-family: var(--font-serif); /* Ensure headings within markdown also use serif */
-            color: var(--accent-color);
+            font-family: 'Noto Serif SC', serif;
+            color: #3b82f6; /* Tailwind blue-500 */
             margin: 1.5em 0 0.5em 0;
             font-weight: 600;
         }
-
-        .markdown-content h1 {
-            font-size: 1.5em;
-            border-bottom: 2px solid var(--accent-color);
-            padding-bottom: 0.3em;
-        }
-
-        .markdown-content h2 {
-            font-size: 1.3em;
-        }
-
-        .markdown-content h3 {
-            font-size: 1.1em;
-        }
-
-        .markdown-content p {
-            margin: 1em 0;
-            text-align: justify;
-        }
-
+        .markdown-content h1 { font-size: 1.5em; border-bottom: 2px solid #3b82f6; padding-bottom: 0.3em; }
+        .markdown-content h2 { font-size: 1.3em; }
+        .markdown-content h3 { font-size: 1.1em; }
+        .markdown-content p { margin: 1em 0; text-align: justify; }
         .markdown-content blockquote {
-            border-left: 4px solid var(--accent-color);
+            border-left: 4px solid #3b82f6;
             padding-left: 1em;
             margin: 1em 0;
             background: rgba(59, 130, 246, 0.1);
             border-radius: 0 8px 8px 0;
         }
-
         .markdown-content code {
             background: rgba(59, 130, 246, 0.2);
             padding: 0.2em 0.4em;
             border-radius: 4px;
-            font-family: 'JetBrains Mono',SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace; /* Specific monospace font for code */
+            font-family: SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
         }
-
         .markdown-content pre {
-            background: rgba(15, 23, 42, 0.8);
+            background: rgba(15, 23, 42, 0.8); /* slate-900 with opacity */
             padding: 1em;
             border-radius: 8px;
             overflow-x: auto;
-            border: 1px solid var(--glass-border);
+            border: 1px solid rgba(59, 130, 246, 0.2); /* blue-500 with opacity */
         }
-
         .markdown-content pre code {
-             font-family: 'JetBrains Mono',SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace; /* Ensure pre > code also uses monospace */
+            font-family: SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
         }
-
         .markdown-content ul,
-        .markdown-content ol {
-            padding-left: 2em;
-            margin: 1em 0;
-        }
-
-        .markdown-content li {
-            margin: 0.5em 0;
-        }
-
-        /* 斜体文本样式优化 - 用于图片描述等辅助信息 */
+        .markdown-content ol { padding-left: 2em; margin: 1em 0; }
+        .markdown-content li { margin: 0.5em 0; }
         .markdown-content em,
         .markdown-content i {
             font-size: 0.85em;
-            color: rgba(148, 163, 184, 0.75);
+            color: rgba(148, 163, 184, 0.75); /* slate-400 with opacity */
             opacity: 0.8;
         }
 
-        .status-indicator {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--accent-color);
-            animation: pulse 2s infinite;
-            margin-right: 8px;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        .loading-dots {
-            display: inline-block;
-        }
-
-        .loading-dots::after {
-            content: '';
-            animation: dots 1.5s steps(4, end) infinite;
-        }
-
-        @keyframes dots {
-            0%, 20% { content: ''; }
-            40% { content: '.'; }
-            60% { content: '..'; }
-            80%, 100% { content: '...'; }
-        }
-
-        /* 动画效果 */
-        .fade-in {
-            animation: fadeIn 0.6s ease-out forwards;
-        }
-
-        .slide-up {
-            animation: slideUp 0.8s ease-out forwards;
-        }
-
-        .scale-in {
-            animation: scaleIn 0.5s ease-out forwards;
-        }
-
-        .slide-in-left {
-            animation: slideInLeft 0.6s ease-out forwards;
-        }
-
-        .slide-in-right {
-            animation: slideInRight 0.6s ease-out forwards;
-        }
-
-        .float-up {
-            animation: floatUp 0.8s ease-out forwards;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        @keyframes slideUp {
-            from { 
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to { 
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes scaleIn {
-            from { 
-                opacity: 0;
-                transform: scale(0.9);
-            }
-            to { 
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        @keyframes slideInLeft {
-            from {
-                opacity: 0;
-                transform: translateX(-50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        @keyframes slideInRight {
-            from {
-                opacity: 0;
-                transform: translateX(50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        @keyframes floatUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px) scale(0.95);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        /* 改进的加载动画 */
-        .loading-container {
+        /* Loading animation styles (used by stream-wisdom-ui.js) */
+        .loading-container { /* This class is on the div *inside* #loadingContainer that holds the spinner and text */
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 200px;
+            text-align: center;
+            padding: 1rem; /* Add some padding for content within the loading container */
         }
-
         .loading-circle {
-            width: 80px;
-            height: 80px;
-            border: 3px solid rgba(59, 130, 246, 0.2);
-            border-top: 3px solid var(--accent-color);
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(59, 130, 246, 0.2); /* Tailwind blue-500 with opacity */
+            border-top-color: #3b82f6; /* Tailwind blue-500 */
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-
-        .loading-pulse {
-            display: flex;
-            gap: 4px;
-            margin: 20px 0;
-        }
-
+        .loading-pulse { display: flex; gap: 4px; margin: 20px 0; }
         .loading-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--accent-color);
+            width: 8px; height: 8px; background: #3b82f6; /* Tailwind blue-500 */
             border-radius: 50%;
             animation: loadingPulse 1.4s ease-in-out infinite both;
         }
-
         .loading-dot:nth-child(1) { animation-delay: -0.32s; }
         .loading-dot:nth-child(2) { animation-delay: -0.16s; }
         .loading-dot:nth-child(3) { animation-delay: 0; }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
+        @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes loadingPulse {
-            0%, 80%, 100% {
-                transform: scale(0.6);
-                opacity: 0.4;
-            }
-            40% {
-                transform: scale(1);
-                opacity: 1;
-            }
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+        
+        /* General animation classes (used by UI functions) */
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .scale-in { animation: scaleIn 0.4s ease-out forwards; }
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
         }
 
-        /* 结果卡片样式优化 */
-        .result-card {
-            background: linear-gradient(135deg, 
-                rgba(15, 23, 42, 0.95) 0%, 
-                rgba(30, 41, 59, 0.95) 50%, 
-                rgba(51, 65, 85, 0.95) 100%);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            box-shadow: 
-                0 20px 40px rgba(0, 0, 0, 0.4),
-                0 0 80px rgba(59, 130, 246, 0.1);
-            transition: all 0.3s ease;
-        }
-
-        .result-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 
-                0 25px 50px rgba(0, 0, 0, 0.5),
-                0 0 100px rgba(59, 130, 246, 0.2);
-        }
-
-        /* 工具栏样式 */
-        .toolbar {
-            background: rgba(15, 23, 42, 0.8);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
-        }
-
-        .toolbar-button {
-            background: rgba(59, 130, 246, 0.1);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            color: var(--text-light);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .toolbar-button:hover {
-            background: rgba(59, 130, 246, 0.2);
-            border-color: var(--accent-color);
-            transform: translateY(-1px);
-            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
-        }
-
-        .toolbar-button:active {
-            transform: translateY(0);
-        }
-
-        .toolbar-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            transition: left 0.5s;
-        }
-
-        .toolbar-button:hover::before {
-            left: 100%;
-        }
-
-        /* 统计信息样式 */
-        .stats-badge {
-            background: rgba(59, 130, 246, 0.1);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            color: var(--accent-color);
-            backdrop-filter: blur(5px);
-        }
-
-        /* 内容区域增强 */
-        .content-area {
-            background: rgba(15, 23, 42, 0.3);
-            border: 1px solid rgba(59, 130, 246, 0.1);
-            border-radius: 16px;
-            padding: 2rem;
-        }
-
-        /* 响应式优化 */
-        @media (max-width: 768px) {
-            .result-card {
-                margin: 1rem;
-                border-radius: 16px;
-            }
-            
-            .content-area {
-                padding: 1.5rem;
-            }
-            
-            .toolbar {
-                padding: 1rem;
-            }
-        }
-
-        /* 首页居中布局 */
-        .center-layout {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 2rem;
-        }
-
-        /* 收缩后的布局 */
-        .compact-layout {
-            padding: 2rem 0; /* Base padding, pt will be adjusted by JS */
-            min-height: auto;
-        }
-
-        /* 清理：不再需要紧凑布局的复杂样式 */
-
-        /* 切换开关样式 */
-        .toggle-switch {
-            user-select: none;
-        }
-
-        .toggle-bg {
-            transition: background-color 0.2s ease;
-        }
-
-        .toggle-dot {
-            transition: transform 0.2s ease, background-color 0.2s ease;
-        }
-
-        /* 未选中状态 */
-        #streamToggle:not(:checked) + .toggle-switch .toggle-bg {
-            background-color: rgb(71, 85, 105);
-        }
-
-        #streamToggle:not(:checked) + .toggle-switch .toggle-dot {
-            transform: translateX(0.125rem);
-            background-color: rgb(203, 213, 225);
-        }
-
-        /* 选中状态 */
-        #streamToggle:checked + .toggle-switch .toggle-bg {
-            background-color: rgb(59, 130, 246);
-        }
-
-        #streamToggle:checked + .toggle-switch .toggle-dot {
-            transform: translateX(1.5rem);
-            background-color: white;
-        }
-
-        /* Hover效果 */
-        .stream-option-wrapper label:hover .toggle-bg {
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
-        }
-
-        /* 阅读辅助功能样式 */
-        .reading-assistant {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            display: none;
-        }
-
-        .reading-controls {
-            background: var(--glass-bg);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            padding: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            min-width: 280px;
-        }
-
-        .reading-control-btn {
-            background: rgba(59, 130, 246, 0.2);
-            border: 1px solid rgba(59, 130, 246, 0.4);
-            color: var(--accent-color);
-            padding: 8px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .reading-control-btn:hover {
-            background: rgba(59, 130, 246, 0.3);
-            border-color: var(--accent-color);
-        }
-
-        .reading-control-btn.active {
-            background: var(--accent-color);
-            color: white;
-        }
-
-        .speed-control {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .speed-slider {
-            width: 80px;
-            height: 4px;
-            background: rgba(59, 130, 246, 0.3);
-            border-radius: 2px;
-            outline: none;
-            cursor: pointer;
-        }
-
-        .speed-slider::-webkit-slider-thumb {
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            background: var(--accent-color);
-            border-radius: 50%;
-            cursor: pointer;
-        }
-
-        .speed-slider::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
-            background: var(--accent-color);
-            border-radius: 50%;
-            border: none;
-            cursor: pointer;
-        }
-
-        /* 阅读高亮样式 */
+        /* Reading Assistant specific styles */
         .reading-highlight {
             background: linear-gradient(120deg, rgba(59, 130, 246, 0.25) 0%, rgba(147, 197, 253, 0.15) 100%) !important;
-            border-radius: 4px;
-            padding: 2px 4px;
-            margin: 0 1px;
+            border-radius: 4px; padding: 2px 4px; margin: 0 1px;
             box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
+        }
+        /* Inline styles are used for focusIndicator, so no dedicated class needed here */
+
+        /* 自定义滚动条样式 - 科技风格 */
+        .scrollbar-thin {
+            scrollbar-width: thin;
+            scrollbar-color: rgb(71 85 105 / 0.5) rgb(30 41 59 / 0.5);
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: rgb(30 41 59 / 0.5);
+            border-radius: 10px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: rgb(71 85 105 / 0.5);
+            border-radius: 10px;
+            border: 1px solid rgb(30 41 59 / 0.3);
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: rgb(71 85 105 / 0.8);
         }
 
-        .reading-highlight::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            border-radius: 4px;
-            animation: shimmer 1.5s ease-in-out;
+        /* Prose样式增强 - 更现代的排版 */
+        .prose {
+            max-width: none;
         }
-
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
+        .prose-lg {
+            font-size: 1.125rem;
+            line-height: 1.7;
         }
-
-        /* 阅读焦点指示器 */
-        .reading-focus-indicator {
-            position: fixed;
-            left: 10px;
-            width: 4px;
-            height: 60px;
-            background: linear-gradient(180deg, var(--accent-color), rgba(59, 130, 246, 0.5));
-            border-radius: 2px;
-            z-index: 999;
-            transition: all 0.3s ease;
-            box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+        .prose-invert {
+            color: #e2e8f0;
         }
-
-        /* 阅读状态提示 */
-        .reading-status {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--glass-bg);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 12px 20px;
-            color: var(--text-light);
-            font-size: 14px;
-            z-index: 999;
-            display: none;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        .prose-invert h1,
+        .prose-invert h2,
+        .prose-invert h3,
+        .prose-invert h4 {
+            color: #60a5fa;
+            font-weight: 600;
         }
-
-        /* 阅读辅助功能开关 */
-        .reading-toggle {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            z-index: 1001;
-            background: var(--glass-bg);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            border-radius: 50px;
-            padding: 12px 16px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            color: var(--text-light);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-            display: none;
+        .prose-invert blockquote {
+            border-left: 4px solid #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+            padding: 1rem 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
         }
-
-        .reading-toggle:hover {
+        .prose-invert code {
             background: rgba(59, 130, 246, 0.2);
-            border-color: var(--accent-color);
+            color: #93c5fd;
+            padding: 0.25rem 0.375rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
         }
-
-        .reading-toggle.active {
-            background: var(--accent-color);
-            color: white;
+        .prose-invert pre {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
         }
-
-        /* 响应式调整 */
-        @media (max-width: 768px) {
-            .reading-assistant {
-                top: 10px;
-                right: 10px;
-                left: 10px;
-            }
-            
-            .reading-controls {
-                flex-wrap: wrap;
-                min-width: auto;
-                gap: 8px;
-                padding: 12px;
-            }
-            
-            .reading-toggle {
-                top: 60px;
-                right: 10px;
-                padding: 10px 12px;
-                font-size: 14px;
-            }
-            
-            .speed-control {
-                flex: 1;
-                min-width: 120px;
-            }
+        .prose-invert strong {
+            color: #f8fafc;
+            font-weight: 600;
+        }
+        .prose-invert em {
+            color: #cbd5e1;
+            font-style: italic;
         }
     </style>
 </head>
-<body class="min-h-screen">
-    <!-- 阅读辅助功能 -->
-    <div class="reading-toggle" id="readingToggle" title="开启阅读辅助 (支持阅读困难症)">
-        <i class="fas fa-eye"></i>
-        <span class="ml-2">阅读辅助</span>
+<body class="min-h-screen flex items-center justify-center px-4 py-12 text-slate-200">
+    <!-- Container for the initial Bento Box UI -->
+    <div id="initialViewContainer" class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl w-full scale-in">
+        <!-- Left: Brand Card -->
+        <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-10 shadow-xl flex flex-col items-center text-center space-y-4">
+          <div class="flex items-center justify-center">
+            <i class="fas fa-brain mr-3 text-blue-400 text-5xl"></i>
+            <h1 class="text-5xl font-semibold text-white">悟流</h1>
+          </div>
+          <h2 class="text-xl text-slate-300 tracking-wide">STREAM OF WISDOM</h2>
+          <p class="text-lg text-slate-400">“将内容转化为知识，如种子在心中生根。”</p>
+          <div class="pt-4 space-y-2">
+            <p class="text-sm text-slate-500">开源项目 ｜ MIT 协议</p>
+            <a href="https://github.com/your-repo/streamwisdom" target="_blank" class="text-blue-400 hover:underline inline-flex items-center">
+              <i class="fab fa-github mr-2"></i>GitHub →
+            </a>
+          </div>
+        </div>
+
+        <!-- Right: Input Card -->
+        <div class="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl shadow-lg p-10 space-y-6">
+          <div class="space-y-2">
+            <label for="urlInput" class="text-white text-sm font-medium flex items-center">
+                <i class="fas fa-link mr-2 text-slate-400"></i> 粘贴需要转化的网址或文章链接
+            </label>
+            <input type="url" id="urlInput" placeholder="https://example.com/article" 
+                   class="w-full p-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3 text-white flex flex-col items-start space-y-1">
+              <label for="complexitySelect" class="flex items-center text-sm"><i class="fas fa-brain mr-2 text-blue-400"></i> 智能模式</label>
+              <select id="complexitySelect" class="bg-transparent text-white outline-none appearance-none text-sm w-full cursor-pointer">
+                <option value="default">自动识别</option>
+                <option value="concise">简化提炼</option>
+                <option value="detailed">结构优先</option>
+                <option value="key_points">核心要点</option>
+              </select>
+            </div>
+
+            <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3 text-white flex items-center justify-between">
+              <label for="streamToggle" class="flex items-center text-sm cursor-pointer"><i class="fas fa-water mr-2 text-sky-400"></i> 流式输出</label>
+              <input type="checkbox" id="streamToggle" class="h-5 w-5 rounded cursor-pointer scale-110" checked> <!-- accent-blue-500 is applied via CSS rule #streamToggle -->
+            </div>
+          </div>
+
+          <button id="transformBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold text-lg hover:from-blue-600 hover:to-indigo-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-blue-500 flex items-center justify-center">
+            <i class="fas fa-wand-magic-sparkles mr-2"></i> 开始转化
+          </button>
+        </div>
+    </div> <!-- End of initialViewContainer -->
+
+    <!-- Container for loading indicators -->
+    <div id="loadingContainer" class="fixed inset-0 z-50 flex flex-col items-center justify-center hidden bg-slate-900 bg-opacity-90 backdrop-blur-sm p-4">
+        <!-- JS will inject loading animation here -->
     </div>
 
-    <div class="reading-assistant" id="readingAssistant">
-        <div class="reading-controls">
-            <button class="reading-control-btn" id="playPauseBtn" title="空格键暂停/继续">
-                <i class="fas fa-play"></i>
-                <span>播放</span>
-            </button>
-            
-            <button class="reading-control-btn" id="stopBtn" title="停止阅读">
-                <i class="fas fa-stop"></i>
-            </button>
-            
-            <div class="speed-control">
-                <i class="fas fa-tachometer-alt text-slate-400"></i>
-                <input type="range" class="speed-slider" id="speedSlider" 
-                       min="0.5" max="2" step="0.1" value="1" 
-                       title="调节阅读速度">
-                <span class="text-slate-400 text-sm" id="speedDisplay">1.0x</span>
-            </div>
-            
-            <button class="reading-control-btn" id="resetBtn" title="重新开始">
-                <i class="fas fa-redo"></i>
-            </button>
-        </div>
+    <!-- Container for dynamic results or error messages -->
+    <div id="dynamicContainer" class="w-full max-w-4xl mx-auto my-8 px-4 hidden">
+        <!-- JS will inject results/errors here -->
     </div>
+    
+    <!-- Temporary message container (optional, if displayTemporaryMessage is used) -->
+    <!-- <div id="temporary-message-container" class="fixed top-6 right-6 z-[100] flex flex-col gap-3"></div> -->
 
-    <div class="reading-focus-indicator" id="focusIndicator"></div>
-    <div class="reading-status" id="readingStatus"></div>
-
-    <header id="compactHeader" class="fixed top-0 left-0 right-0 z-40 bg-[var(--primary-color)] py-3 px-6 hidden items-center tech-border shadow-lg">
-        <div class="flex items-center">
-            <i class="fas fa-brain text-blue-400 mr-3 text-xl"></i>
-            <span class="text-xl font-semibold text-white">悟流</span>
-        </div>
-        <!-- Future placeholder for potential actions/links -->
-    </header>
-
-    <!-- Main Container -->
-    <div id="mainContainer" class="center-layout">
-        <!-- Central Input Card -->
-        <div id="inputCard" class="glass-card rounded-3xl p-8 sm:p-12 max-w-2xl w-full mx-4 relative">
-            <div id="inputControls">
-                <div class="text-center mb-8">
-                    <div class="mb-4">
-                        <h1 class="text-4xl font-bold text-white mb-3 tracking-wide flex items-center justify-center">
-                            <i class="fas fa-brain text-blue-400 mr-3 text-3xl"></i>
-                            悟流
-                        </h1>
-                        <div class="text-lg text-blue-300 mb-4 tracking-widest">STREAM OF WISDOM</div>
-                        <div class="w-20 h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent mx-auto mb-4"></div>
-                        <p class="text-base text-slate-300 max-w-md mx-auto leading-relaxed">
-                            将内容转化为知识，如种子在心智中生根
-                        </p>
-                    </div>
-                </div>
-
-                <div id="inputElementsContainer" class="space-y-6">
-                    <!-- URL Input -->
-                    <div class="url-input-wrapper">
-                        <input 
-                            type="url" 
-                            id="urlInput" 
-                            placeholder="https://example.com/article" 
-                            class="w-full px-6 py-4 rounded-xl cyber-input text-white placeholder-slate-400 outline-none text-lg"
-                            required
-                        >
-                    </div>
-
-                    <!-- Options Row -->
-                    <div class="options-row-wrapper">
-                        <div class="max-w-sm mx-auto">
-                            <label class="block text-slate-300 text-sm font-medium mb-2 text-center">
-                                <i class="fas fa-layer-group mr-2 text-blue-400"></i>阅读难度
-                            </label>
-                            <select id="complexitySelect" class="w-full px-4 py-3 rounded-lg cyber-input text-white outline-none">
-                                <option value="beginner">通俗易懂</option>
-                                <option value="intermediate">有一定深度</option>
-                            </select>
-                            <div class="text-center text-slate-400 text-xs mt-2">
-                                ✨ AI会自动分析内容并选择最佳转化风格
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Stream Output Option -->
-                    <div class="stream-option-wrapper">
-                        <label class="flex items-center justify-center gap-3 p-4 rounded-lg border border-slate-600 bg-slate-800/30 hover:bg-slate-700/30 cursor-pointer transition-all duration-200 hover:border-blue-400/50">
-                            <div class="flex items-center gap-2">
-                                <i class="fas fa-stream text-blue-400"></i>
-                                <span class="text-slate-300 font-medium">流式输出</span>
-                            </div>
-                            <input type="checkbox" id="streamToggle" class="sr-only" checked>
-                            <div class="toggle-switch relative">
-                                <div class="toggle-bg w-12 h-6 bg-slate-600 rounded-full shadow-inner transition-all duration-200"></div>
-                                <div class="toggle-dot absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transform transition-all duration-200 translate-x-6 bg-blue-400"></div>
-                            </div>
-                            <div class="text-slate-400 text-sm">
-                                实时查看AI生成过程
-                            </div>
-                        </label>
-                    </div>
-
-                    <!-- Transform Button -->
-                    <div class="transform-button-wrapper">
-                        <button 
-                            id="transformBtn" 
-                            class="w-full py-4 px-8 cyber-button text-white font-semibold rounded-xl text-lg flex items-center justify-center gap-3 transform transition-all duration-200 hover:scale-105"
-                        >
-                            <i class="fas fa-rocket text-xl"></i>
-                            开始转化
-                        </button>
-                    </div>
-
-                    <!-- Model Status -->
-                    <div class="model-status-wrapper text-center">
-                        <div class="inline-flex items-center text-slate-400 text-sm">
-                            <span class="status-indicator mr-2"></span>
-                            <span id="currentModel">AI模型：自动选择最佳模型</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div id="loadingOverlay" class="absolute inset-0 bg-opacity-80 bg-slate-900 flex flex-col items-center justify-center rounded-3xl hidden">
-                <!-- JS 会在这里填充加载动画和文字 -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Loading Container -->
-    <div id="loadingContainer" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
-        <div class="glass-card rounded-3xl p-8 max-w-md w-full mx-4">
-            <!-- 加载内容将由JavaScript填充 -->
-        </div>
-    </div>
-
-    <!-- Dynamic Content Container -->
-    <div id="dynamicContainer"></div>
-
-    <!-- Footer -->
-    <footer id="mainFooter" class="text-center mt-20 pt-8 border-t border-slate-700">
-        <div class="text-slate-400 text-sm space-y-2">
-            <p>开源项目 | MIT 协议</p>
-            <div class="flex justify-center items-center gap-4">
-                <a href="https://github.com/username/StreamOfWisdom" class="hover:text-blue-400 transition-colors flex items-center gap-1">
-                    <i class="fab fa-github"></i>GitHub
-                </a>
-                <span class="text-slate-600">|</span>
-                <span class="flex items-center gap-1">
-                    <i class="fas fa-heart text-red-400"></i>
-                    让知识如种子般生根发芽
-                </span>
-            </div>
-        </div>
-    </footer>
-
-    <script src="app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script type="module" src="app.js"></script>
 </body>
 </html> 
