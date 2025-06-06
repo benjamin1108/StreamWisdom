@@ -36,3 +36,9 @@ Thumbs.db
 # 测试
 test/
 coverage/ 
+
+# 数据
+data/
+*.db
+*.sqlite
+

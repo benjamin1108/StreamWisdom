@@ -5,7 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 
 class DatabaseManager {
     constructor() {
-        this.dbPath = path.join(__dirname, '..', 'data', 'transformations.db');
+        this.dbPath = path.join(__dirname, '..', '..', '..', 'data', 'transformations.db');
         this.db = null;
     }
 
