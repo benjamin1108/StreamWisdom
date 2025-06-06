@@ -295,71 +295,10 @@
     <!-- Temporary message container (optional, if displayTemporaryMessage is used) -->
     <!-- <div id="temporary-message-container" class="fixed top-6 right-6 z-[100] flex flex-col gap-3"></div> -->
 
-    <!-- 管理员配置面板 -->
-    <div id="adminConfigPanel" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-            <div class="flex items-center justify-between mb-6">
-                <h3 class="text-lg font-semibold text-white flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
-                        </path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    </svg>
-                    系统配置
-                </h3>
-                <button id="closeConfigPanel" class="text-slate-400 hover:text-white">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="space-y-4">
-                <!-- AI校验配置 -->
-                <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-                    <div class="flex items-center justify-between mb-2">
-                        <label class="flex items-center text-white font-medium">
-                            <svg class="w-5 h-5 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z">
-                                </path>
-                            </svg>
-                            AI内容校验
-                        </label>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="aiValidationToggle" class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                    </div>
-                    <p class="text-sm text-slate-400" id="aiValidationDescription">
-                        使用AI模型判断提取的内容是否有意义，避免无意义内容进入转化流程
-                    </p>
-                    <div class="mt-2 text-xs text-slate-500">
-                        禁用后将仅使用基础校验规则
-                    </div>
-                </div>
-                
-                <!-- 状态显示 -->
-                <div id="configStatus" class="hidden p-3 rounded-lg text-sm"></div>
-            </div>
-            
-            <div class="flex space-x-3 mt-6">
-                <button id="saveConfigBtn" 
-                        class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
-                    保存配置
-                </button>
-                <button id="cancelConfigBtn" 
-                        class="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors">
-                    取消
-                </button>
-            </div>
-        </div>
-    </div>
+
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="/modules/transformationsHistory.js"></script>
-    <script src="/modules/adminConfig.js"></script>
     <script type="module" src="/app.js"></script>
     <script>
         // 页面加载完成后初始化转化历史

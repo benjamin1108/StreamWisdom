@@ -1291,48 +1291,7 @@ app.get('/api/models', (req, res) => {
     }
 });
 
-// 获取AI校验配置信息
-app.get('/api/config/ai-validation', async (req, res) => {
-    try {
-        const config = await configManager.loadConfig();
-        res.json({
-            enabled: config.aiValidation.enabled,
-            description: config.aiValidation.description
-        });
-    } catch (error) {
-        console.error('获取AI校验配置失败:', error);
-        res.status(500).json({ error: '获取AI校验配置失败' });
-    }
-});
 
-// 更新AI校验配置（仅管理员）
-app.post('/api/config/ai-validation', async (req, res) => {
-    try {
-        // 检查管理员权限
-        if (!req.session.isAdmin) {
-            return res.status(403).json({ error: '需要管理员权限' });
-        }
-
-        const { enabled } = req.body;
-        if (typeof enabled !== 'boolean') {
-            return res.status(400).json({ error: '参数类型错误，enabled必须是布尔值' });
-        }
-
-        const success = await configManager.updateAiValidationConfig(enabled);
-        if (success) {
-            res.json({
-                success: true,
-                message: `AI校验功能已${enabled ? '启用' : '禁用'}`,
-                enabled: enabled
-            });
-        } else {
-            res.status(500).json({ error: '更新配置失败' });
-        }
-    } catch (error) {
-        console.error('更新AI校验配置失败:', error);
-        res.status(500).json({ error: '更新AI校验配置失败' });
-    }
-});
 
 // 辅助函数：获取模型状态描述
 function getModelStatus(modelId, hasValidKey, isEnabled, isSelected, isCurrent) {

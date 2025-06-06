@@ -31,7 +31,7 @@ class ConfigManager {
                 // AI校验配置
                 aiValidation: {
                     enabled: this.getAiValidationEnabled(),
-                    description: this.modelsConfig.aiValidation?.description || '是否启用AI校验功能'
+                    description: '控制是否使用AI模型校验提取的内容质量'
                 },
                 // 其他配置
                 server: {
@@ -62,19 +62,12 @@ class ConfigManager {
 
     /**
      * 获取AI校验是否启用
-     * 优先级：环境变量 > 配置文件 > 默认值
+     * 只从环境变量读取，默认启用
      */
     getAiValidationEnabled() {
-        // 首先检查环境变量
         if (process.env.ENABLE_AI_VALIDATION !== undefined) {
             return process.env.ENABLE_AI_VALIDATION.toLowerCase() === 'true';
         }
-
-        // 然后检查配置文件
-        if (this.modelsConfig?.aiValidation?.enabled !== undefined) {
-            return this.modelsConfig.aiValidation.enabled;
-        }
-
         // 默认启用
         return true;
     }
@@ -112,32 +105,7 @@ class ConfigManager {
         return await this.loadConfig();
     }
 
-    /**
-     * 更新AI校验配置（写入配置文件）
-     */
-    async updateAiValidationConfig(enabled) {
-        try {
-            await this.loadConfig();
-            
-            if (this.modelsConfig) {
-                this.modelsConfig.aiValidation = {
-                    ...this.modelsConfig.aiValidation,
-                    enabled: enabled
-                };
 
-                await fs.writeFile(this.configPath, JSON.stringify(this.modelsConfig, null, 2), 'utf-8');
-                
-                // 重新加载配置
-                await this.reloadConfig();
-                
-                console.log(`AI校验配置已更新: ${enabled ? '启用' : '禁用'}`);
-                return true;
-            }
-        } catch (error) {
-            console.error('更新AI校验配置失败:', error);
-            return false;
-        }
-    }
 }
 
 // 导出单例实例
