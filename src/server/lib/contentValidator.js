@@ -5,6 +5,7 @@
 
 const fs = require('fs').promises;
 const path = require('path');
+const configManager = require('./configManager');
 
 class ContentValidator {
     constructor() {
@@ -47,6 +48,16 @@ class ContentValidator {
             const basicValidation = this.basicValidation(extractedData);
             if (!basicValidation.isValid) {
                 return basicValidation;
+            }
+
+            // 检查是否启用AI校验
+            const aiValidationEnabled = await configManager.isAiValidationEnabled();
+            if (!aiValidationEnabled) {
+                console.log('AI校验已禁用，跳过AI校验步骤');
+                return {
+                    isValid: true,
+                    reason: 'AI校验已禁用，仅通过基础校验'
+                };
             }
 
             // AI校验
@@ -159,9 +170,24 @@ class ContentValidator {
         try {
             const { content } = extractedData;
             
-            // 截取内容前500字符进行校验（节省token）
-            const contentSample = content.length > 500 ? 
-                content.substring(0, 500) + '...' : content;
+            // 智能截取内容进行校验（从多个位置采样，避免只看开头）
+            let contentSample = '';
+            
+            if (content.length <= 800) {
+                // 内容较短，使用全部内容
+                contentSample = content;
+            } else if (content.length <= 2000) {
+                // 中等长度，使用前800字符
+                contentSample = content.substring(0, 800);
+            } else {
+                // 长内容，采用多段采样策略：开头 + 中段 + 结尾，自然连接
+                const start = content.substring(0, 400);
+                const middle = content.substring(Math.floor(content.length * 0.4), Math.floor(content.length * 0.4) + 400);
+                const end = content.substring(Math.max(0, content.length - 200));
+                
+                // 自然连接，不添加明显的截断标记
+                contentSample = start + '\n\n' + middle + '\n\n' + end;
+            }
 
             // 加载校验提示词
             const basePrompt = await this.loadValidationPrompt();

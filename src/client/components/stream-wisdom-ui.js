@@ -439,7 +439,7 @@ export function displayRegularResultView(data, callbacks) {
             <!-- 内容区域 - 无滚动条，自然展开 -->
             <div class="result-content-area">
                 <div class="p-8">
-                    <div class="markdown-content text-slate-100 prose prose-lg prose-invert max-w-none leading-relaxed">
+                    <div class="markdown-content text-slate-100 prose prose-invert max-w-none leading-relaxed">
                         ${htmlContent}
                     </div>
                 </div>
@@ -483,7 +483,7 @@ let scrollEventHandlerAttached = false; // Flag to ensure listener is added only
 
 function handleUserScroll() {
     userHasScrolledManually = true;
-    console.log("用户手动滚动，自动滚动已禁用"); // For debugging
+            // 用户手动滚动，自动滚动已禁用
 }
 
 // Function to re-enable auto-scroll if needed, e.g., by a button
@@ -518,7 +518,7 @@ export function displayStreamResultLayout(callbacks) {
             }
         }, { passive: true });
         scrollEventHandlerAttached = true;
-        console.log("滚动事件监听器已附加"); // For debugging
+        // 滚动事件监听器已附加
     }
 
     // 简约科技风布局 - 内容自然展开
@@ -556,7 +556,7 @@ export function displayStreamResultLayout(callbacks) {
             <!-- 内容区域 - 无滚动条，自然展开 -->
             <div id="${streamIdPrefix}-content-area" class="result-content-area">
                 <div class="p-8">
-                    <div id="${streamIdPrefix}-typing-text" class="markdown-content text-slate-100 prose prose-lg prose-invert max-w-none leading-relaxed"></div>
+                    <div id="${streamIdPrefix}-typing-text" class="markdown-content text-slate-100 prose prose-invert max-w-none leading-relaxed"></div>
                     <span id="${streamIdPrefix}-typing-cursor" class="ml-1 text-emerald-400 animate-pulse font-mono text-lg">▍</span>
                 </div>
             </div>
@@ -600,10 +600,7 @@ export function appendContentToStreamView(typingTextElement, typingCursorElement
         
         // Auto-scroll to latest content ONLY if the user hasn't scrolled manually
         if (!userHasScrolledManually) {
-            console.log("执行自动滚动"); // For debugging
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-        } else {
-            console.log("用户已手动滚动，跳过自动滚动"); // For debugging
         }
     }
     if (typingCursorElement) {
@@ -647,17 +644,47 @@ export function finalizeStreamResultView(elements, finalData, callbacks) {
     }
 
     // 更新底部统计显示
-    if (elements.streamStatsDisplay && finalData.stats) {
+    if (elements.streamStatsDisplay && finalData) {
         const stats = [];
-        if (finalData.stats.transformedLength) {
-            stats.push(`${finalData.stats.transformedLength.toLocaleString()} 字符`);
+        
+        // 显示转化后字符数
+        if (finalData.transformedLength || (finalData.stats && finalData.stats.transformedLength)) {
+            const transformedLength = finalData.transformedLength || finalData.stats.transformedLength;
+            stats.push(`${transformedLength.toLocaleString()} 字符`);
         }
-        if (finalData.stats.imageCount > 0) {
-            stats.push(`${finalData.stats.imageCount} 张图片`);
+        
+        // 显示压缩率
+        if ((finalData.originalLength || (finalData.stats && finalData.stats.originalLength)) && 
+            (finalData.transformedLength || (finalData.stats && finalData.stats.transformedLength))) {
+            const originalLength = finalData.originalLength || finalData.stats.originalLength;
+            const transformedLength = finalData.transformedLength || finalData.stats.transformedLength;
+            const compressionRatio = transformedLength / originalLength;
+            
+            if (compressionRatio < 1) {
+                // 压缩了内容
+                const compressionPercent = ((1 - compressionRatio) * 100).toFixed(1);
+                stats.push(`压缩${compressionPercent}%`);
+            } else if (compressionRatio > 1) {
+                // 扩展了内容
+                const expansionPercent = ((compressionRatio - 1) * 100).toFixed(1);
+                stats.push(`扩展${expansionPercent}%`);
+            } else {
+                stats.push(`无变化`);
+            }
         }
+        
+        // 显示图片数量
+        if ((finalData.imageCount && finalData.imageCount > 0) || 
+            (finalData.stats && finalData.stats.imageCount > 0)) {
+            const imageCount = finalData.imageCount || finalData.stats.imageCount;
+            stats.push(`${imageCount} 张图片`);
+        }
+        
+        // 显示使用的模型
         if (finalData.model) {
             stats.push(`${getModelDisplayName(finalData.model)}`);
         }
+        
         elements.streamStatsDisplay.textContent = stats.join(' · ') || '转化完成';
     } else if (elements.streamStatsDisplay) {
         elements.streamStatsDisplay.textContent = '转化完成';

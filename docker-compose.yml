@@ -19,6 +19,8 @@ services:
       - password=${ADMIN_PASSWORD:-password}
       # 会话密钥
       - SESSION_SECRET=${SESSION_SECRET:-stream-wisdom-secret-key-2024}
+      # AI校验配置
+      - ENABLE_AI_VALIDATION=${ENABLE_AI_VALIDATION:-true}
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs

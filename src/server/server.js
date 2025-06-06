@@ -11,6 +11,7 @@ const DatabaseManager = require('./lib/database');
 const FileCleanupManager = require('./lib/fileCleanup');
 const UrlUtils = require('./lib/urlUtils');
 const contentValidator = require('./lib/contentValidator');
+const configManager = require('./lib/configManager');
 require('dotenv').config();
 
 const app = express();
@@ -356,10 +357,9 @@ async function extractUrlContent(url) {
             .replace(/\n\s*\n/g, '\n\n')  // 多个换行符保留为双换行
             .trim();
             
-        // 限制内容长度（避免token过多）
-        if (content.length > 15000) {
-            content = content.substring(0, 15000) + '...';
-        }
+        // 保留完整内容，不进行截断
+        // 如果内容过长，交给后续处理环节根据需要进行智能截取
+        // 这样可以确保AI校验看到的是完整的原始内容
         
         // 最终内容验证
         if (!content || content.length < 50) {
@@ -468,7 +468,22 @@ async function transformContent(extractedData, style, complexity) {
         imageSection += '请在转化后的内容中：\n1. 对重要图片进行描述和总结\n2. 解释图片与文章内容的关系\n3. 如果图片有助于理解，请在适当位置提及\n4. 可以使用markdown的图片语法：![描述](链接)\n\n';
     }
 
-    const finalPrompt = `${basePrompt}\n\n${complexityInstruction}${imageSection}\n\n请转化以下内容，确保输出完整、详细的内容（目标长度1000-2000字）：\n\n${content}`;
+    // 智能处理超长内容：如果内容过长，进行智能截取
+    let processedContent = content;
+    if (content.length > 60000) {
+        // 对于特别长的内容，保留开头、多个中段和结尾，确保内容均衡
+        const start = content.substring(0, 18000);                    // 开头18k字符
+        const quarter = content.substring(Math.floor(content.length * 0.25), Math.floor(content.length * 0.25) + 12000);  // 1/4位置12k字符
+        const middle = content.substring(Math.floor(content.length * 0.5), Math.floor(content.length * 0.5) + 12000);      // 中间12k字符  
+        const threequarter = content.substring(Math.floor(content.length * 0.75), Math.floor(content.length * 0.75) + 8000); // 3/4位置8k字符
+        const end = content.substring(Math.max(0, content.length - 10000));  // 结尾10k字符
+        
+        processedContent = start + '\n\n' + quarter + '\n\n' + middle + '\n\n' + threequarter + '\n\n' + end;
+        
+        console.log(`内容过长(${content.length}字符)，已智能截取到${processedContent.length}字符，保持结构完整性`);
+    }
+
+    const finalPrompt = `${basePrompt}\n\n${complexityInstruction}${imageSection}\n\n请转化以下内容，确保输出完整、详细的内容（目标长度1000-2000字）：\n\n${processedContent}`;
     
     // 服务端自动选择最佳模型
     const modelId = modelManager.selectBestModel();
@@ -494,7 +509,25 @@ async function transformContent(extractedData, style, complexity) {
             }
         ];
         
-        return await modelManager.callModel(modelId, messages, apiKey);
+        const result = await modelManager.callModel(modelId, messages, apiKey);
+        
+        // 计算和记录压缩率统计
+        const originalLength = content.length;
+        const transformedLength = result.length;
+        const compressionRatio = (transformedLength / originalLength).toFixed(3);
+        
+        console.log(`📊 内容转化统计:`);
+        console.log(`   原始长度: ${originalLength.toLocaleString()} 字符`);
+        console.log(`   转化后长度: ${transformedLength.toLocaleString()} 字符`);
+        console.log(`   压缩率: ${compressionRatio} (${(compressionRatio * 100).toFixed(1)}%)`);
+        
+        if (compressionRatio > 1) {
+            console.log(`   📈 内容扩展: 增加了 ${(transformedLength - originalLength).toLocaleString()} 字符`);
+        } else {
+            console.log(`   📉 内容压缩: 减少了 ${(originalLength - transformedLength).toLocaleString()} 字符`);
+        }
+        
+        return result;
         
     } catch (error) {
         console.error('AI模型调用失败:', error.message);
@@ -550,6 +583,38 @@ app.get('/api/admin/status', (req, res) => {
         isAdmin: !!req.session.isAdmin,
         loginTime: req.session.loginTime || null
     });
+});
+
+// 获取压缩率统计API（管理员功能）
+app.get('/api/admin/compression-stats', async (req, res) => {
+    try {
+        if (!req.session.isAdmin) {
+            return res.status(401).json({ error: '需要管理员权限' });
+        }
+
+        const stats = await databaseManager.getCompressionStatistics();
+        
+        res.json({
+            success: true,
+            statistics: {
+                totalTransformations: stats.total_transformations || 0,
+                averageCompressionRatio: parseFloat((stats.avg_compression_ratio || 0).toFixed(3)),
+                minCompressionRatio: parseFloat((stats.min_compression_ratio || 0).toFixed(3)),
+                maxCompressionRatio: parseFloat((stats.max_compression_ratio || 0).toFixed(3)),
+                averageOriginalLength: Math.round(stats.avg_original_length || 0),
+                averageTransformedLength: Math.round(stats.avg_transformed_length || 0),
+                expansionCount: stats.expansion_count || 0,
+                compressionCount: stats.compression_count || 0,
+                expansionPercentage: stats.total_transformations > 0 ? 
+                    parseFloat(((stats.expansion_count / stats.total_transformations) * 100).toFixed(1)) : 0,
+                compressionPercentage: stats.total_transformations > 0 ? 
+                    parseFloat(((stats.compression_count / stats.total_transformations) * 100).toFixed(1)) : 0
+            }
+        });
+    } catch (error) {
+        console.error('获取压缩率统计失败:', error);
+        res.status(500).json({ error: '获取统计数据失败' });
+    }
 });
 
 // URL检查API - 检查是否已存在转化
@@ -655,6 +720,10 @@ app.post('/api/transform', async (req, res) => {
         let transformationUuid = null;
         try {
             const normalizedUrl = urlUtils.normalizeUrl(url);
+            const originalLength = extractedData.content.length;
+            const transformedLength = result.length;
+            const compressionRatio = transformedLength / originalLength;
+            
             const saveResult = await databaseManager.saveTransformation({
                 title: title,
                 originalUrl: normalizedUrl, // 保存标准化的URL
@@ -662,10 +731,14 @@ app.post('/api/transform', async (req, res) => {
                 style: 'auto',
                 complexity: complexity,
                 imageCount: extractedData.imageCount,
-                images: extractedData.images
+                images: extractedData.images,
+                originalLength: originalLength,
+                transformedLength: transformedLength,
+                compressionRatio: compressionRatio
             });
             transformationUuid = saveResult.uuid;
-            console.log(`转化结果已保存到数据库，UUID: ${transformationUuid}`);
+            const action = saveResult.updated ? '覆盖更新' : '新建保存';
+            console.log(`转化结果已${action}到数据库，UUID: ${transformationUuid}`);
         } catch (saveError) {
             console.error('保存到数据库失败:', saveError);
         }
@@ -806,6 +879,10 @@ app.post('/api/transform-stream', async (req, res) => {
             let transformationUuid = null;
             try {
                 const normalizedUrl = urlUtils.normalizeUrl(url);
+                const originalLength = extractedData.content.length;
+                const transformedLength = result.length;
+                const compressionRatio = transformedLength / originalLength;
+                
                 const saveResult = await databaseManager.saveTransformation({
                     title: title,
                     originalUrl: normalizedUrl, // 保存标准化的URL
@@ -813,10 +890,14 @@ app.post('/api/transform-stream', async (req, res) => {
                     style: 'auto',
                     complexity: complexity,
                     imageCount: extractedData.imageCount,
-                    images: extractedData.images
+                    images: extractedData.images,
+                    originalLength: originalLength,
+                    transformedLength: transformedLength,
+                    compressionRatio: compressionRatio
                 });
                 transformationUuid = saveResult.uuid;
-                console.log(`转化结果已保存到数据库，UUID: ${transformationUuid}`);
+                const action = saveResult.updated ? '覆盖更新' : '新建保存';
+                console.log(`转化结果已${action}到数据库，UUID: ${transformationUuid}`);
             } catch (saveError) {
                 console.error('保存到数据库失败:', saveError);
             }
@@ -894,7 +975,22 @@ async function transformContentStream(extractedData, style, complexity, onChunk)
         imageSection += '请在转化后的内容中：\n1. 对重要图片进行描述和总结\n2. 解释图片与文章内容的关系\n3. 如果图片有助于理解，请在适当位置提及\n4. 可以使用markdown的图片语法：![描述](链接)\n\n';
     }
     
-    const finalPrompt = `${basePrompt}\n\n${complexityInstruction}${imageSection}\n\n请转化以下内容，确保输出完整、详细的内容（目标长度1000-2000字）：\n\n${content}`;
+    // 智能处理超长内容：如果内容过长，进行智能截取
+    let processedContent = content;
+    if (content.length > 60000) {
+        // 对于特别长的内容，保留开头、多个中段和结尾，确保内容均衡
+        const start = content.substring(0, 18000);                    // 开头18k字符
+        const quarter = content.substring(Math.floor(content.length * 0.25), Math.floor(content.length * 0.25) + 12000);  // 1/4位置12k字符
+        const middle = content.substring(Math.floor(content.length * 0.5), Math.floor(content.length * 0.5) + 12000);      // 中间12k字符  
+        const threequarter = content.substring(Math.floor(content.length * 0.75), Math.floor(content.length * 0.75) + 8000); // 3/4位置8k字符
+        const end = content.substring(Math.max(0, content.length - 10000));  // 结尾10k字符
+        
+        processedContent = start + '\n\n' + quarter + '\n\n' + middle + '\n\n' + threequarter + '\n\n' + end;
+        
+        console.log(`流式转化：内容过长(${content.length}字符)，已智能截取到${processedContent.length}字符，保持结构完整性`);
+    }
+    
+    const finalPrompt = `${basePrompt}\n\n${complexityInstruction}${imageSection}\n\n请转化以下内容，确保输出完整、详细的内容（目标长度1000-2000字）：\n\n${processedContent}`;
     
     // 服务端自动选择最佳模型
     const modelId = modelManager.selectBestModel();
@@ -921,7 +1017,25 @@ async function transformContentStream(extractedData, style, complexity, onChunk)
         ];
         
         // 使用流式调用，并在回调中推送内容块
-        return await callModelWithStreamCallback(modelManager, modelId, messages, apiKey, onChunk);
+        const result = await callModelWithStreamCallback(modelManager, modelId, messages, apiKey, onChunk);
+        
+        // 计算和记录压缩率统计（流式模式）
+        const originalLength = content.length;
+        const transformedLength = result.length;
+        const compressionRatio = (transformedLength / originalLength).toFixed(3);
+        
+        console.log(`📊 流式转化统计:`);
+        console.log(`   原始长度: ${originalLength.toLocaleString()} 字符`);
+        console.log(`   转化后长度: ${transformedLength.toLocaleString()} 字符`);
+        console.log(`   压缩率: ${compressionRatio} (${(compressionRatio * 100).toFixed(1)}%)`);
+        
+        if (compressionRatio > 1) {
+            console.log(`   📈 内容扩展: 增加了 ${(transformedLength - originalLength).toLocaleString()} 字符`);
+        } else {
+            console.log(`   📉 内容压缩: 减少了 ${(originalLength - transformedLength).toLocaleString()} 字符`);
+        }
+        
+        return result;
         
     } catch (error) {
         console.error('AI模型流式调用失败:', error.message);
@@ -1177,6 +1291,49 @@ app.get('/api/models', (req, res) => {
     }
 });
 
+// 获取AI校验配置信息
+app.get('/api/config/ai-validation', async (req, res) => {
+    try {
+        const config = await configManager.loadConfig();
+        res.json({
+            enabled: config.aiValidation.enabled,
+            description: config.aiValidation.description
+        });
+    } catch (error) {
+        console.error('获取AI校验配置失败:', error);
+        res.status(500).json({ error: '获取AI校验配置失败' });
+    }
+});
+
+// 更新AI校验配置（仅管理员）
+app.post('/api/config/ai-validation', async (req, res) => {
+    try {
+        // 检查管理员权限
+        if (!req.session.isAdmin) {
+            return res.status(403).json({ error: '需要管理员权限' });
+        }
+
+        const { enabled } = req.body;
+        if (typeof enabled !== 'boolean') {
+            return res.status(400).json({ error: '参数类型错误，enabled必须是布尔值' });
+        }
+
+        const success = await configManager.updateAiValidationConfig(enabled);
+        if (success) {
+            res.json({
+                success: true,
+                message: `AI校验功能已${enabled ? '启用' : '禁用'}`,
+                enabled: enabled
+            });
+        } else {
+            res.status(500).json({ error: '更新配置失败' });
+        }
+    } catch (error) {
+        console.error('更新AI校验配置失败:', error);
+        res.status(500).json({ error: '更新AI校验配置失败' });
+    }
+});
+
 // 辅助函数：获取模型状态描述
 function getModelStatus(modelId, hasValidKey, isEnabled, isSelected, isCurrent) {
     if (!isEnabled) {
@@ -1351,7 +1508,7 @@ app.get('/share/:uuid', async (req, res) => {
         body { font-family: 'Noto Serif SC', serif; }
         .markdown-content { 
             line-height: 1.8; 
-            font-size: 1.125rem; /* 调整为与转化文本页面一致的字体大小 */
+            font-size: 1rem; /* 调整为与转化页面一致的字体大小 */
             color: #e2e8f0;
         }
         .markdown-content h1, .markdown-content h2, .markdown-content h3 { 
@@ -1394,7 +1551,7 @@ app.get('/share/:uuid', async (req, res) => {
     </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-    <div class="container mx-auto max-w-6xl p-6"> <!-- 调整宽度与转化文本页面一致 -->
+    <div class="container mx-auto max-w-6xl p-6"> <!-- 调整宽度与转化页面一致 -->
         <div class="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden">
             <!-- 品牌头部 -->
             <div class="bg-gradient-to-r from-slate-800/80 to-blue-800/80 px-8 py-6 border-b border-slate-700/50">
@@ -1605,11 +1762,26 @@ async function startServer() {
         fileCleanupManager.startPeriodicCleanup();
         
         // 启动HTTP服务器
-        app.listen(PORT, HOST, () => {
-            console.log(`悟流服务器运行在 http://${HOST}:${PORT}`);
-            console.log('数据库已初始化');
-            console.log('文件清理任务已启动');
+        app.listen(PORT, HOST, async () => {
+            // 获取AI校验配置状态
+            let aiValidationStatus = '启用';
+            try {
+                const isEnabled = await configManager.isAiValidationEnabled();
+                aiValidationStatus = isEnabled ? '启用' : '禁用';
+            } catch (error) {
+                aiValidationStatus = '配置加载失败';
+            }
+
+            console.log('\n' + '='.repeat(60));
+            console.log('🌟 悟流 / Stream of Wisdom 服务器已启动');
+            console.log(`📡 访问地址: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+            console.log(`🧠 当前模型: ${modelManager.selectBestModel()}`);
+            console.log(`🔍 AI校验: ${aiValidationStatus}`);
+            console.log(`👑 管理员账户: ${ADMIN_CONFIG.username}`);
+            console.log('💾 数据库已初始化');
+            console.log('🧹 文件清理任务已启动');
             console.log('按 Ctrl+C 停止服务器');
+            console.log('='.repeat(60) + '\n');
         });
         
         // 优雅关闭

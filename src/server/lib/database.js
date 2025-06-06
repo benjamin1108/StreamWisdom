@@ -42,7 +42,10 @@ class DatabaseManager {
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     image_count INTEGER DEFAULT 0,
-                    images TEXT DEFAULT '[]'
+                    images TEXT DEFAULT '[]',
+                    original_length INTEGER DEFAULT 0,
+                    transformed_length INTEGER DEFAULT 0,
+                    compression_ratio REAL DEFAULT 0.0
                 )
             `;
             
@@ -50,14 +53,31 @@ class DatabaseManager {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve();
+                    // 检查并添加新字段（向后兼容）
+                    this.addMissingColumns().then(() => {
+                        resolve();
+                    }).catch(reject);
                 }
             });
         });
     }
 
+    async addMissingColumns() {
+        const addColumnIfNotExists = (columnName, columnDef) => {
+            return new Promise((resolve) => {
+                this.db.run(`ALTER TABLE transformations ADD COLUMN ${columnName} ${columnDef}`, (err) => {
+                    // 忽略"column already exists"错误
+                    resolve();
+                });
+            });
+        };
+
+        await addColumnIfNotExists('original_length', 'INTEGER DEFAULT 0');
+        await addColumnIfNotExists('transformed_length', 'INTEGER DEFAULT 0');
+        await addColumnIfNotExists('compression_ratio', 'REAL DEFAULT 0.0');
+    }
+
     async saveTransformation(data) {
-        const transformationUuid = uuidv4();
         const {
             title,
             originalUrl,
@@ -66,37 +86,91 @@ class DatabaseManager {
             complexity = 'medium',
             filePath = null,
             imageCount = 0,
-            images = []
+            images = [],
+            originalLength = 0,
+            transformedLength = 0,
+            compressionRatio = 0.0
         } = data;
 
-        return new Promise((resolve, reject) => {
-            const sql = `
-                INSERT INTO transformations 
-                (uuid, title, original_url, transformed_content, style, complexity, file_path, image_count, images)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `;
+        // 先检查是否已存在相同URL的记录
+        const existingRecord = await this.getTransformationByUrl(originalUrl);
+        
+        if (existingRecord) {
+            // 覆盖模式：更新现有记录
+            console.log(`检测到重复URL，覆盖现有记录: ${originalUrl} (UUID: ${existingRecord.uuid})`);
             
-            this.db.run(sql, [
-                transformationUuid,
-                title,
-                originalUrl,
-                transformedContent,
-                style,
-                complexity,
-                filePath,
-                imageCount,
-                JSON.stringify(images)
-            ], function(err) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve({
-                        id: this.lastID,
-                        uuid: transformationUuid
-                    });
-                }
+            return new Promise((resolve, reject) => {
+                const sql = `
+                    UPDATE transformations 
+                    SET title = ?, transformed_content = ?, style = ?, complexity = ?, 
+                        file_path = ?, image_count = ?, images = ?, 
+                        original_length = ?, transformed_length = ?, compression_ratio = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE uuid = ?
+                `;
+                
+                this.db.run(sql, [
+                    title,
+                    transformedContent,
+                    style,
+                    complexity,
+                    filePath,
+                    imageCount,
+                    JSON.stringify(images),
+                    originalLength,
+                    transformedLength,
+                    compressionRatio,
+                    existingRecord.uuid
+                ], function(err) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve({
+                            id: existingRecord.id,
+                            uuid: existingRecord.uuid,
+                            updated: true
+                        });
+                    }
+                });
             });
-        });
+        } else {
+            // 新建模式：创建新记录
+            const transformationUuid = uuidv4();
+            console.log(`创建新转化记录: ${originalUrl} (UUID: ${transformationUuid})`);
+            
+            return new Promise((resolve, reject) => {
+                const sql = `
+                    INSERT INTO transformations 
+                    (uuid, title, original_url, transformed_content, style, complexity, file_path, image_count, images, original_length, transformed_length, compression_ratio)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `;
+                
+                this.db.run(sql, [
+                    transformationUuid,
+                    title,
+                    originalUrl,
+                    transformedContent,
+                    style,
+                    complexity,
+                    filePath,
+                    imageCount,
+                    JSON.stringify(images),
+                    originalLength,
+                    transformedLength,
+                    compressionRatio
+                ], function(err) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve({
+                            id: this.lastID,
+                            uuid: transformationUuid,
+                            updated: false
+                        });
+                    }
+                });
+            });
+        }
     }
 
     async getTransformationByUuid(uuid) {
@@ -258,12 +332,12 @@ class DatabaseManager {
         });
     }
 
-    async getTransformationByUrl(originalUrl) {
+        async getTransformationByUrl(originalUrl) {
         return new Promise((resolve, reject) => {
             const sql = `
                 SELECT * FROM transformations 
-                WHERE original_url = ?
-                ORDER BY created_at DESC
+                WHERE original_url = ? 
+                ORDER BY created_at DESC 
                 LIMIT 1
             `;
             
@@ -274,6 +348,32 @@ class DatabaseManager {
                     if (row) {
                         row.images = JSON.parse(row.images || '[]');
                     }
+                    resolve(row);
+                }
+            });
+        });
+    }
+
+    async getCompressionStatistics() {
+        return new Promise((resolve, reject) => {
+            const sql = `
+                SELECT 
+                    COUNT(*) as total_transformations,
+                    AVG(compression_ratio) as avg_compression_ratio,
+                    MIN(compression_ratio) as min_compression_ratio,
+                    MAX(compression_ratio) as max_compression_ratio,
+                    AVG(original_length) as avg_original_length,
+                    AVG(transformed_length) as avg_transformed_length,
+                    SUM(CASE WHEN compression_ratio > 1 THEN 1 ELSE 0 END) as expansion_count,
+                    SUM(CASE WHEN compression_ratio < 1 THEN 1 ELSE 0 END) as compression_count
+                FROM transformations 
+                WHERE compression_ratio > 0
+            `;
+            
+            this.db.get(sql, (err, row) => {
+                if (err) {
+                    reject(err);
+                } else {
                     resolve(row);
                 }
             });

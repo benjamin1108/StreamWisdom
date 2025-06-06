@@ -29,10 +29,15 @@
       "description": "通义千问Max - 最强性能，成本较高"
     }
   },
+  "aiValidation": {
+    "enabled": true,
+    "description": "是否启用AI校验功能，用于判断提取的内容是否有意义"
+  },
   "_comments": {
     "selectedModel": "主动选择的模型ID，如果设置了此字段且该模型有有效的API密钥，将优先使用此模型",
     "priority": "模型优先级列表，当selectedModel不可用时，按此顺序选择备用模型",
     "usage": "要切换模型，只需修改selectedModel字段的值为任一可用的模型ID",
+    "aiValidation": "控制AI内容校验功能的开关，设置为false可以跳过AI校验",
     "available_models": [
       "grok3-mini",
       "groq-llama3",

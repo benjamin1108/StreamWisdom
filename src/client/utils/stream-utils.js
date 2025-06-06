@@ -65,11 +65,36 @@ export function getModelDisplayName(modelId) {
     return modelNames[modelId] || modelId || '未知模型';
 }
 
-export function getStatsText(modelUsed, imageCount, transformedLength) {
+export function getStatsText(transformedLength, originalLength, imageCount) {
     let stats = [];
-    if (modelUsed) stats.push(`${getModelDisplayName(modelUsed)}`); // Calls getModelDisplayName from this module
-    if (imageCount > 0) stats.push(`${imageCount} 张图片`);
-    if (transformedLength > 0) stats.push(`${transformedLength.toLocaleString()} 字符`);
+    
+    // 显示转化后字符数
+    if (transformedLength > 0) {
+        stats.push(`${transformedLength.toLocaleString()} 字符`);
+    }
+    
+    // 显示压缩率
+    if (originalLength > 0 && transformedLength > 0) {
+        const compressionRatio = transformedLength / originalLength;
+        
+        if (compressionRatio < 1) {
+            // 压缩了内容
+            const compressionPercent = ((1 - compressionRatio) * 100).toFixed(1);
+            stats.push(`压缩${compressionPercent}%`);
+        } else if (compressionRatio > 1) {
+            // 扩展了内容
+            const expansionPercent = ((compressionRatio - 1) * 100).toFixed(1);
+            stats.push(`扩展${expansionPercent}%`);
+        } else {
+            stats.push(`无变化`);
+        }
+    }
+    
+    // 显示图片数量
+    if (imageCount > 0) {
+        stats.push(`${imageCount} 张图片`);
+    }
+    
     return stats.join(' · ') || '暂无统计信息'; 
 }
 
