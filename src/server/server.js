@@ -10,6 +10,7 @@ const PDFExtractor = require('./lib/pdfExtractor');
 const DatabaseManager = require('./lib/database');
 const FileCleanupManager = require('./lib/fileCleanup');
 const UrlUtils = require('./lib/urlUtils');
+const contentValidator = require('./lib/contentValidator');
 require('dotenv').config();
 
 const app = express();
@@ -612,6 +613,18 @@ app.post('/api/transform', async (req, res) => {
         const extractedData = await extractUrlContent(url);
         console.log(`提取内容成功，长度: ${extractedData.content.length} 字符，图片: ${extractedData.imageCount} 张`);
         
+        // 校验内容是否有意义
+        console.log('开始校验内容质量...');
+        const validation = await contentValidator.validateContent(extractedData, modelManager);
+        console.log('内容校验结果:', validation);
+        
+        if (!validation.isValid) {
+            return res.status(400).json({ 
+                error: `内容校验失败: ${validation.reason}`,
+                suggestion: '请检查URL是否正确，或者该页面是否包含有效内容。'
+            });
+        }
+        
         // 转化内容（AI自动选择风格，服务端自动选择模型）
         const result = await transformContent(extractedData, null, complexity);
         console.log(`内容转化成功，转化后长度: ${result.length} 字符`);
@@ -728,7 +741,31 @@ app.post('/api/transform-stream', async (req, res) => {
                 }
             })}\n\n`);
             
-            // 第二步：AI转化 - 使用流式输出
+            // 第二步：校验内容质量
+            res.write(`data: ${JSON.stringify({ type: 'progress', stage: 'validating', message: '正在校验内容质量...' })}\n\n`);
+            
+            console.log('开始校验内容质量...');
+            const validation = await contentValidator.validateContent(extractedData, modelManager);
+            console.log('内容校验结果:', validation);
+            
+            if (!validation.isValid) {
+                res.write(`data: ${JSON.stringify({ 
+                    type: 'error', 
+                    error: `内容校验失败: ${validation.reason}`,
+                    suggestion: '请检查URL是否正确，或者该页面是否包含有效内容。'
+                })}\n\n`);
+                res.end();
+                return;
+            }
+            
+            res.write(`data: ${JSON.stringify({ 
+                type: 'progress', 
+                stage: 'validated', 
+                message: `内容校验通过：${validation.reason}`,
+                data: { validation: validation }
+            })}\n\n`);
+            
+            // 第三步：AI转化 - 使用流式输出
             res.write(`data: ${JSON.stringify({ type: 'progress', stage: 'transforming', message: '正在进行AI智能转化...' })}\n\n`);
             
             const usedModel = modelManager.selectBestModel();
