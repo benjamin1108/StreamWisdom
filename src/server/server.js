@@ -12,6 +12,7 @@ const FileCleanupManager = require('./lib/fileCleanup');
 const UrlUtils = require('./lib/urlUtils');
 const contentValidator = require('./lib/contentValidator');
 const configManager = require('./lib/configManager');
+const ContentTypeChecker = require('./lib/contentTypeChecker');
 require('dotenv').config();
 
 const app = express();
@@ -30,6 +31,7 @@ const pdfExtractor = new PDFExtractor();
 const databaseManager = new DatabaseManager();
 const fileCleanupManager = new FileCleanupManager(databaseManager);
 const urlUtils = new UrlUtils();
+const contentTypeChecker = new ContentTypeChecker();
 
 // 中间件
 app.use(cors());
@@ -66,6 +68,16 @@ async function loadPrompt() {
 
 // 提取URL内容
 async function extractUrlContent(url) {
+    // 第一步：检查内容类型是否允许
+    console.log('🔐 检查内容类型限制:', url);
+    const typeCheck = await contentTypeChecker.isAllowedUrl(url);
+    
+    if (!typeCheck.allowed) {
+        throw new Error(`内容类型不被允许：${typeCheck.reason}`);
+    }
+    
+    console.log(`✅ 内容类型检查通过：${typeCheck.reason} (类型: ${typeCheck.contentType})`);
+
     // 检查缓存
     if (urlCache.has(url)) {
         console.log('从缓存获取内容:', url);
@@ -483,8 +495,9 @@ async function transformContent(extractedData, style, complexity) {
         console.log(`内容过长(${content.length}字符)，已智能截取到${processedContent.length}字符，保持结构完整性`);
     }
 
-    const finalPrompt = `${basePrompt}\n\n${complexityInstruction}${imageSection}\n\n请转化以下内容，确保输出完整、详细的内容（目标长度1000-2000字）：\n\n${processedContent}`;
+    const finalPrompt = `${basePrompt}\n\n${imageSection}\n\n\n\n${processedContent}`;
     
+    console.output(finalPrompt)
     // 服务端自动选择最佳模型
     const modelId = modelManager.selectBestModel();
     
@@ -614,6 +627,95 @@ app.get('/api/admin/compression-stats', async (req, res) => {
     } catch (error) {
         console.error('获取压缩率统计失败:', error);
         res.status(500).json({ error: '获取统计数据失败' });
+    }
+});
+
+// 获取内容类型配置API
+app.get('/api/admin/content-types', async (req, res) => {
+    try {
+        if (!req.session.isAdmin) {
+            return res.status(401).json({ error: '需要管理员权限' });
+        }
+
+        const config = contentTypeChecker.getConfig();
+        res.json({
+            success: true,
+            config: config
+        });
+    } catch (error) {
+        console.error('获取内容类型配置失败:', error);
+        res.status(500).json({ error: '获取配置失败' });
+    }
+});
+
+// 更新内容类型配置API
+app.post('/api/admin/content-types', async (req, res) => {
+    try {
+        if (!req.session.isAdmin) {
+            return res.status(401).json({ error: '需要管理员权限' });
+        }
+
+        const { config } = req.body;
+        if (!config) {
+            return res.status(400).json({ error: '缺少配置数据' });
+        }
+
+        const success = await contentTypeChecker.updateConfig(config);
+        if (success) {
+            res.json({ success: true, message: '内容类型配置更新成功' });
+        } else {
+            res.status(500).json({ error: '配置更新失败' });
+        }
+    } catch (error) {
+        console.error('更新内容类型配置失败:', error);
+        res.status(500).json({ error: '更新配置失败' });
+    }
+});
+
+// 重新加载内容类型配置API
+app.post('/api/admin/content-types/reload', async (req, res) => {
+    try {
+        if (!req.session.isAdmin) {
+            return res.status(401).json({ error: '需要管理员权限' });
+        }
+
+        await contentTypeChecker.reloadConfig();
+        res.json({ success: true, message: '内容类型配置重新加载成功' });
+    } catch (error) {
+        console.error('重新加载内容类型配置失败:', error);
+        res.status(500).json({ error: '重新加载配置失败' });
+    }
+});
+
+// 获取内容类型支持信息API（公共接口）
+app.get('/api/content-types', async (req, res) => {
+    try {
+        const config = contentTypeChecker.getConfig();
+        
+        // 只返回公开的配置信息，不包含敏感配置
+        const publicConfig = {
+            enabled: config.enabled,
+            allowedTypes: {}
+        };
+
+        // 处理允许的内容类型信息
+        if (config.allowedContentTypes) {
+            for (const [type, typeConfig] of Object.entries(config.allowedContentTypes)) {
+                publicConfig.allowedTypes[type] = {
+                    enabled: typeConfig.enabled,
+                    description: typeConfig.description,
+                    note: typeConfig.note || null
+                };
+            }
+        }
+
+        res.json({
+            success: true,
+            config: publicConfig
+        });
+    } catch (error) {
+        console.error('获取内容类型信息失败:', error);
+        res.status(500).json({ error: '获取类型信息失败' });
     }
 });
 

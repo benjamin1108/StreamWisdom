@@ -1,0 +1,65 @@
+{
+  "enabled": true,
+  "allowedContentTypes": {
+    "pdf": {
+      "enabled": true,
+      "description": "PDF文档",
+      "extensions": [".pdf"],
+      "domains": ["*"],
+      "restrictedDomains": [],
+      "examples": ["学术论文", "技术文档", "报告等PDF文件"]
+    },
+    "html": {
+      "enabled": true,
+      "description": "HTML网页",
+      "extensions": [".html", ".htm"],
+      "domains": ["*"],
+      "restrictedDomains": [],
+      "examples": ["博客文章", "新闻页面", "技术文档网页"]
+    },
+    "youtube": {
+      "enabled": true,
+      "description": "YouTube视频",
+      "domains": ["youtube.com", "youtu.be", "m.youtube.com"],
+      "restrictedDomains": [],
+      "note": "YouTube视频提取功能暂未实现",
+      "examples": ["YouTube视频页面（需要专门的视频内容提取器）"]
+    },
+    "github": {
+      "enabled": false,
+      "description": "GitHub仓库和文档",
+      "domains": ["github.com", "raw.githubusercontent.com"],
+      "restrictedDomains": [],
+      "examples": ["README文件", "GitHub项目页面", "技术文档"]
+    },
+    "academic": {
+      "enabled": true,
+      "description": "学术网站",
+      "domains": ["arxiv.org", "ieee.org", "acm.org", "springer.com", "nature.com", "researchgate.net"],
+      "restrictedDomains": [],
+      "examples": ["arXiv论文", "IEEE文档", "学术期刊文章"]
+    },
+    "documentation": {
+      "enabled": true,
+      "description": "技术文档网站",
+      "domains": ["*"],
+      "restrictedDomains": ["example.com"],
+      "examples": ["API文档", "技术指南", "官方文档"]
+    }
+  },
+  "restrictions": {
+    "maxFileSize": "50MB",
+    "timeout": 30000,
+    "allowUnknownTypes": true,
+    "maxContentLength": 10000000
+  },
+  "_comments": {
+    "enabled": "总开关，设为false时禁用所有内容类型限制",
+    "allowedContentTypes": "定义允许提取的内容类型",
+    "domains": "允许的域名列表，使用*表示允许所有域名",
+    "restrictedDomains": "禁止的域名列表，优先级高于允许列表",
+    "allowUnknownTypes": "是否允许提取未明确定义的内容类型",
+    "maxContentLength": "最大内容长度限制（字符数）",
+    "examples": "该内容类型的使用示例"
+  }
+} 
