@@ -1,4 +1,4 @@
-import { getModelDisplayName, renderMarkdown, styleMarkdownImages, getStatsText } from '../utils/stream-utils.js';
+import { getModelDisplayName, renderMarkdown, styleMarkdownImages, getStatsText } from '../../../public/modules/utils/stream-utils.js';
 
 export function displayTemporaryMessage(message, type = 'success', duration) {
     const containerId = 'temporary-message-container';

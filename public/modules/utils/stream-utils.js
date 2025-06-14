@@ -55,11 +55,12 @@ export function styleMarkdownImages() {
 
 export function getModelDisplayName(modelId) {
     const modelNames = {
-        'grok3-mini': 'Grok 3 Mini',
-        'groq-llama3': 'Llama 3 (Groq)',
-        'qwen-turbo': '通义千问 Turbo',
-        'qwen-max': '通义千问 Max',
-        'openai-gpt4': 'GPT-4 (OpenAI)',
+        'openai-gpt41': 'GPT-4.1 (OpenAI)',
+        'gemini-2.5-pro-preview-06-05': 'Gemini 2.5 Pro (Google)',
+        'grok3-beta': 'Grok 3 Beta',
+        'grok3-mini-beta': 'Grok 3 Mini Beta',
+        'qwen-plus-latest': '通义千问 Plus',
+        'qwen3-235b-a22b': '通义千问3 235B',
         'default': '默认模型'
     };
     return modelNames[modelId] || modelId || '未知模型';

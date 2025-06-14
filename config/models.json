@@ -1,32 +1,37 @@
 {
-  "selectedModel": "grok3-mini",
+  "selectedModel": "grok3-beta",
   "priority": [
-    "grok3-mini",
-    "groq-llama3",
-    "qwen-turbo",
-    "openai-gpt4",
-    "qwen-max"
+    "grok3-beta",
+    "grok3-mini-beta",
+    "gemini-2.5-pro-preview-06-05",
+    "openai-gpt41",
+    "qwen-plus-latest",
+    "qwen3-235b-a22b"
   ],
   "settings": {
-    "grok3-mini": {
+    "grok3-beta": {
       "enabled": true,
-      "description": "xAI Grok 3 Mini - 快速响应，理解能力强"
+      "description": "xAI Grok 3 Beta - 推理能力出色"
     },
-    "groq-llama3": {
+    "grok3-mini-beta": {
       "enabled": true,
-      "description": "Groq Llama3 - 推理速度快，免费额度高"
+      "description": "xAI Grok 3 Mini Beta - 快速响应，成本更低"
     },
-    "qwen-turbo": {
+    "gemini-2.5-pro-preview-06-05": {
       "enabled": true,
-      "description": "通义千问Turbo - 中文理解优秀，成本较低"
+      "description": "Google Gemini 2.5 Pro Preview - 多模态能力"
     },
-    "openai-gpt4": {
+    "openai-gpt41": {
       "enabled": true,
-      "description": "OpenAI GPT-4 - 性能稳定，质量保证"
+      "description": "OpenAI GPT-4.1 - 最新 GPT-4 系列，能力更强"
     },
-    "qwen-max": {
+    "qwen-plus-latest": {
       "enabled": true,
-      "description": "通义千问Max - 最强性能，成本较高"
+      "description": "通义千问 Plus Latest - 高性能中文模型"
+    },
+    "qwen3-235b-a22b": {
+      "enabled": true,
+      "description": "通义千问3 235B a22b - 最新旗舰模型"
     }
   },
   "_comments": {
@@ -34,11 +39,12 @@
     "priority": "模型优先级列表，当selectedModel不可用时，按此顺序选择备用模型",
     "usage": "要切换模型，只需修改selectedModel字段的值为任一可用的模型ID",
     "available_models": [
-      "grok3-mini",
-      "groq-llama3",
-      "qwen-turbo",
-      "openai-gpt4",
-      "qwen-max"
+      "grok3-beta",
+      "grok3-mini-beta",
+      "gemini-2.5-pro-preview-06-05",
+      "openai-gpt41",
+      "qwen-plus-latest",
+      "qwen3-235b-a22b"
     ]
   }
 }

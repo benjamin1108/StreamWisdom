@@ -5,7 +5,7 @@ import {
     getStatsText,
     copyToClipboard,
     generateErrorReportText
-} from './utils/stream-utils.js';
+} from '../../public/modules/utils/stream-utils.js';
 import {
     fetchRegularTransform,
     fetchStreamTransform

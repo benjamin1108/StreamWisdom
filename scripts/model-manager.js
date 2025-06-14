@@ -32,15 +32,16 @@ class ModelManagerCLI {
 示例:
   node scripts/model-manager.js status
   node scripts/model-manager.js list
-  node scripts/model-manager.js switch qwen-turbo
-  node scripts/model-manager.js test grok3-mini
+  node scripts/model-manager.js switch grok3-beta
+  node scripts/model-manager.js test openai-gpt41
 
 可用的模型ID:
-  grok3-mini      xAI Grok 3 Mini
-  groq-llama3     Groq Llama3
-  qwen-turbo      通义千问Turbo
-  qwen-max        通义千问Max
-  openai-gpt4     OpenAI GPT-4
+  openai-gpt41        OpenAI GPT-4.1
+  gemini-2.5-pro-preview-06-05  Google Gemini 2.5 Pro Preview
+  grok3-beta          xAI Grok 3 Beta
+  grok3-mini-beta     xAI Grok 3 Mini Beta
+  qwen-plus-latest    通义千问 Plus Latest
+  qwen3-235b-a22b          通义千问3 235B
 `);
     }
 
@@ -172,11 +173,12 @@ class ModelManagerCLI {
             console.log(`⚠️  注意: ${modelName} 缺少API密钥`);
             
             const keyName = {
-                'grok3-mini': 'XAI_API_KEY',
-                'groq-llama3': 'GROQ_API_KEY',
-                'qwen-turbo': 'DASHSCOPE_API_KEY',
-                'qwen-max': 'DASHSCOPE_API_KEY',
-                'openai-gpt4': 'OPENAI_API_KEY'
+                'openai-gpt41': 'OPENAI_API_KEY',
+                'gemini-2.5-pro-preview-06-05': 'GOOGLE_API_KEY',
+                'grok3-beta': 'XAI_API_KEY',
+                'grok3-mini-beta': 'XAI_API_KEY',
+                'qwen-plus-latest': 'DASHSCOPE_API_KEY',
+                'qwen3-235b-a22b': 'DASHSCOPE_API_KEY'
             }[modelId];
             
             console.log(`💡 请在 .env 文件中配置: ${keyName}=your-api-key-here`);

@@ -3,10 +3,37 @@ const axios = require('axios');
 class ModelManager {
     constructor() {
         this.models = {
-            'grok3-mini': {
-                name: 'Grok 3 Mini',
+            'openai-gpt41': {
+                name: 'OpenAI GPT-4.1',
+                apiUrl: 'https://api.openai.com/v1/chat/completions',
+                model: 'gpt-4o-mini',
+                maxTokens: 4096,
+                temperature: 0.7,
+                timeout: 30000,
+                headers: (apiKey) => ({
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                }),
+                supportStream: true
+            },
+            'gemini-2.5-pro-preview-06-05': {
+                name: 'Google Gemini 2.5 Pro (Preview)',
+                apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-06-05:generateContent',
+                model: 'gemini-2.5-pro-preview-06-05',
+                maxTokens: 32768,
+                temperature: 0.7,
+                timeout: 30000,
+                headers: (apiKey) => ({
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                }),
+                // Google Gemini 接口格式与 OpenAI 不同，暂时使用标准格式调用，后续如需自定义可在此处添加 formatRequest/formatResponse
+                supportStream: false
+            },
+            'grok3-beta': {
+                name: 'Grok 3 Beta',
                 apiUrl: 'https://api.x.ai/v1/chat/completions',
-                model: 'grok-3-mini',
+                model: 'grok-3-beta',
                 maxTokens: 9999,
                 temperature: 0.7,
                 timeout: 30000,
@@ -16,11 +43,11 @@ class ModelManager {
                 }),
                 supportStream: true
             },
-            'groq-llama3': {
-                name: 'Groq Llama3',
-                apiUrl: 'https://api.groq.com/openai/v1/chat/completions',
-                model: 'llama3-70b-8192',
-                maxTokens: 4000,
+            'grok3-mini-beta': {
+                name: 'Grok 3 Mini Beta',
+                apiUrl: 'https://api.x.ai/v1/chat/completions',
+                model: 'grok-3-mini-beta',
+                maxTokens: 9999,
                 temperature: 0.7,
                 timeout: 30000,
                 headers: (apiKey) => ({
@@ -29,41 +56,13 @@ class ModelManager {
                 }),
                 supportStream: true
             },
-            'qwen-turbo': {
-                name: '通义千问Turbo',
+            'qwen-plus-latest': {
+                name: '通义千问 Plus Latest',
                 apiUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
-                model: 'qwen-turbo',
-                maxTokens: 4000,
-                temperature: 0.7,
-                timeout: 30000,
-                headers: (apiKey) => ({
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json'
-                }),
-                formatRequest: (messages, params) => ({
-                    model: params.model,
-                    input: {
-                        messages: messages
-                    },
-                    parameters: {
-                        max_tokens: params.maxTokens,
-                        temperature: params.temperature,
-                        top_p: 0.8,
-                        incremental_output: true
-                    }
-                }),
-                formatResponse: (response) => {
-                    return response.data.output.text;
-                },
-                supportStream: true
-            },
-            'qwen-max': {
-                name: '通义千问Max',
-                apiUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
-                model: 'qwen-max-latest',
+                model: 'qwen-plus-latest',
                 maxTokens: 8192,
                 temperature: 0.7,
-                timeout: 30000000,
+                timeout: 300000,
                 headers: (apiKey) => ({
                     'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json'
@@ -71,7 +70,7 @@ class ModelManager {
                 formatRequest: (messages, params) => ({
                     model: params.model,
                     input: {
-                        messages: messages
+                        messages
                     },
                     parameters: {
                         max_tokens: params.maxTokens,
@@ -80,22 +79,33 @@ class ModelManager {
                         incremental_output: true
                     }
                 }),
-                formatResponse: (response) => {
-                    return response.data.output.text;
-                },
+                formatResponse: (response) => response.data.output.text,
                 supportStream: true
             },
-            'openai-gpt4': {
-                name: 'OpenAI GPT-4',
-                apiUrl: 'https://api.openai.com/v1/chat/completions',
-                model: 'gpt-4o-mini',
-                maxTokens: 4000,
+            'qwen3-235b-a22b': {
+                name: '通义千问3 235B',
+                apiUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
+                model: 'qwen3-235b-a22b',
+                maxTokens: 8192,
                 temperature: 0.7,
-                timeout: 30000,
+                timeout: 300000,
                 headers: (apiKey) => ({
                     'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json'
                 }),
+                formatRequest: (messages, params) => ({
+                    model: params.model,
+                    input: {
+                        messages
+                    },
+                    parameters: {
+                        max_tokens: params.maxTokens,
+                        temperature: params.temperature,
+                        top_p: 0.8,
+                        incremental_output: true
+                    }
+                }),
+                formatResponse: (response) => response.data.output.text,
                 supportStream: true
             }
         };
@@ -412,11 +422,12 @@ class ModelManager {
     // 根据环境变量获取默认API密钥
     getDefaultApiKey(modelId) {
         const keyMappings = {
-            'grok3-mini': process.env.XAI_API_KEY,
-            'groq-llama3': process.env.GROQ_API_KEY,
-            'qwen-turbo': process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY,
-            'qwen-max': process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY,
-            'openai-gpt4': process.env.OPENAI_API_KEY
+            'openai-gpt41': process.env.OPENAI_API_KEY,
+            'gemini-2.5-pro-preview-06-05': process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY,
+            'grok3-beta': process.env.XAI_API_KEY,
+            'grok3-mini-beta': process.env.XAI_API_KEY,
+            'qwen-plus-latest': process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY,
+            'qwen3-235b-a22b': process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY
         };
         
         return keyMappings[modelId] || process.env.OPENAI_API_KEY; // 兜底使用OPENAI_API_KEY
@@ -427,10 +438,10 @@ class ModelManager {
         try {
             const configPath = require('path').join(__dirname, '..', 'config', 'models.json');
             const config = require(configPath);
-            return config.priority || ['grok3-mini', 'groq-llama3', 'qwen-turbo', 'openai-gpt4', 'qwen-max'];
+            return config.priority || ['grok3-beta', 'grok3-mini-beta', 'gemini-2.5-pro-preview-06-05', 'openai-gpt41', 'qwen-plus-latest', 'qwen3-235b-a22b'];
         } catch (error) {
             console.log('使用默认模型优先级');
-            return ['grok3-mini', 'groq-llama3', 'qwen-turbo', 'openai-gpt4', 'qwen-max'];
+            return ['grok3-beta', 'grok3-mini-beta', 'gemini-2.5-pro-preview-06-05', 'openai-gpt41', 'qwen-plus-latest', 'qwen3-235b-a22b'];
         }
     }
 
